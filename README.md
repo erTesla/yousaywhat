@@ -84,7 +84,7 @@ YouSayWhat runs entirely on **Firebase's free Spark plan** — no paid tier, no 
 ## Quick start (local, no Firebase needed)
 
 ```bash
-git clone https://github.com/your-username/yousaywhat.git
+git clone https://github.com/erTesla/yousaywhat.git
 cd yousaywhat
 npm install
 npm run dev:mock
