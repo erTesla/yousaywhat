@@ -18,8 +18,6 @@ export default function Host() {
 
   const [verified, setVerified]       = useState(null); // null=checking | true | false
   const [game, setGame]               = useState(null);
-  const [players, setPlayers]         = useState({});
-  const [answers, setAnswers]         = useState({});
   const [tamperAlerts, setTamperAlerts] = useState([]);
   const [timerDone, setTimerDone]     = useState(false);
   const [busy, setBusy]               = useState(false);
@@ -53,8 +51,6 @@ export default function Host() {
       if (!snap.exists()) return;
       const data = snap.val();
       setGame(data);
-      setPlayers(data.players || {});
-      setAnswers(data.answers  || {});
     });
     return unsub;
   }, [verified, pin]);
@@ -162,6 +158,8 @@ export default function Host() {
   }
   if (!game) return <Splash>Loading game…</Splash>;
 
+  const players      = game.players || {};
+  const answers      = game.answers || {};
   const status       = game.status;
   const questionCount = game.questions?.length || 0;
   const isLastQ      = currentIdx >= questionCount - 1;

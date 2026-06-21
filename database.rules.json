@@ -2,7 +2,7 @@
   "rules": {
     "games": {
       "$pin": {
-        ".read": false,
+        ".read": "auth != null && auth.uid === data.child('hostUid').val()",
         ".write": "auth != null && (!data.exists() || auth.uid === data.child('hostUid').val())",
 
         "hostUid":       { ".read": true },

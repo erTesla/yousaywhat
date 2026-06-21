@@ -28,23 +28,32 @@ export default function Play() {
   useEffect(() => {
     if (!pin || !user) return;
 
-    const unsub = onValue(ref(db, `games/${pin}`), snap => {
+    // Read individual permitted paths — players cannot read the full game node
+    // because that would expose questions[].correct for all questions upfront.
+    const unsubStatus = onValue(ref(db, `games/${pin}/status`), snap => {
       if (!snap.exists()) { navigate('/'); return; }
-      const data = snap.val();
+      setStatus(snap.val());
+    });
 
-      // Reset answer selection when a new question arrives
-      const newIdx = data.currentQuestion?.index ?? -1;
+    const unsubQuestion = onValue(ref(db, `games/${pin}/currentQuestion`), snap => {
+      const q = snap.val();
+      const newIdx = q?.index ?? -1;
       if (newIdx !== prevQIdx.current) {
         prevQIdx.current = newIdx;
         setMyAnswer(null);
       }
-
-      setStatus(data.status || null);
-      setCurrentQuestion(data.currentQuestion || null);
-      setReveal(data.reveal || null);
-      setPlayers(data.players || {});
+      setCurrentQuestion(q);
     });
-    return unsub;
+
+    const unsubReveal  = onValue(ref(db, `games/${pin}/reveal`),   snap => setReveal(snap.val()));
+    const unsubPlayers = onValue(ref(db, `games/${pin}/players`),  snap => setPlayers(snap.val() || {}));
+
+    return () => {
+      unsubStatus();
+      unsubQuestion();
+      unsubReveal();
+      unsubPlayers();
+    };
   }, [pin, user, navigate]);
 
   async function handleAnswer(choiceIdx) {

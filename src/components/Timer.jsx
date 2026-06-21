@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 
 export default function Timer({ startedAt, timeLimit, onExpired, compact = false }) {
   const [remaining, setRemaining] = useState(timeLimit);
   const expiredFired = useRef(false);
+  const onExpiredRef = useRef(onExpired);
+  useLayoutEffect(() => { onExpiredRef.current = onExpired; });
 
   useEffect(() => {
     if (!startedAt) return;
@@ -14,14 +16,14 @@ export default function Timer({ startedAt, timeLimit, onExpired, compact = false
       setRemaining(rem);
       if (rem === 0 && !expiredFired.current) {
         expiredFired.current = true;
-        onExpired();
+        onExpiredRef.current();
       }
     };
 
     tick();
     const id = setInterval(tick, 100);
     return () => clearInterval(id);
-  }, [startedAt, timeLimit, onExpired]);
+  }, [startedAt, timeLimit]);
 
   const pct = (remaining / timeLimit) * 100;
   const urgent = remaining < timeLimit * 0.25;
