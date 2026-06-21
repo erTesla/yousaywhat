@@ -1,0 +1,104 @@
+{
+  "games": {
+    "218053": {
+      "hostUid": "mock-dx257717f",
+      "hostSecret": "28b71c42dbbddefdd781e510f96dcf8fac9f994e5a5bbb8ee12b0800588e4aa5",
+      "status": "ended",
+      "currentQuestion": {
+        "index": 4,
+        "text": "Which ocean is the largest?",
+        "choices": [
+          "Atlantic",
+          "Indian",
+          "Arctic",
+          "Pacific"
+        ],
+        "timeLimit": 20,
+        "startedAt": 1782026877726
+      },
+      "questions": [
+        {
+          "text": "What is the capital of France?",
+          "choices": [
+            "London",
+            "Paris",
+            "Berlin",
+            "Madrid"
+          ],
+          "correct": 1,
+          "timeLimit": 20
+        },
+        {
+          "text": "Which planet is closest to the Sun?",
+          "choices": [
+            "Venus",
+            "Mars",
+            "Mercury",
+            "Earth"
+          ],
+          "correct": 2,
+          "timeLimit": 20
+        },
+        {
+          "text": "How many sides does a hexagon have?",
+          "choices": [
+            "5",
+            "6",
+            "7",
+            "8"
+          ],
+          "correct": 1,
+          "timeLimit": 15
+        },
+        {
+          "text": "What is 12 × 12?",
+          "choices": [
+            "132",
+            "144",
+            "124",
+            "148"
+          ],
+          "correct": 1,
+          "timeLimit": 15
+        },
+        {
+          "text": "Which ocean is the largest?",
+          "choices": [
+            "Atlantic",
+            "Indian",
+            "Arctic",
+            "Pacific"
+          ],
+          "correct": 3,
+          "timeLimit": 20
+        }
+      ],
+      "players": {
+        "mock-xyn1046q1": {
+          "name": "DICKK6",
+          "score": 1994,
+          "lastPoints": 0
+        },
+        "mock-an477pwyk": {
+          "name": "huuh",
+          "score": 3980,
+          "lastPoints": 0
+        }
+      },
+      "answers": {
+        "mock-an477pwyk": {
+          "choice": 2,
+          "elapsed": 0
+        },
+        "mock-xyn1046q1": {
+          "choice": 1,
+          "elapsed": 0
+        }
+      },
+      "reveal": {
+        "index": 4,
+        "correct": 3
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "rules": {
+    "games": {
+      "$pin": {
+        ".read": false,
+        ".write": "auth != null && (!data.exists() || auth.uid === data.child('hostUid').val())",
+
+        "hostUid":       { ".read": true },
+        "status":        { ".read": true },
+        "currentQuestion": { ".read": true },
+        "reveal":        { ".read": true },
+
+        "hostSecret": {
+          ".read": false
+        },
+
+        "questions": {
+          ".read": "auth != null && auth.uid === data.parent().child('hostUid').val()"
+        },
+
+        "players": {
+          ".read": true,
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+
+        "answers": {
+          ".read": "auth != null && auth.uid === data.parent().child('hostUid').val()",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && data.parent().parent().child('status').val() === 'question'"
+          }
+        },
+
+        "tamperLog": {
+          ".read": "auth != null && auth.uid === data.parent().child('hostUid').val()",
+          "$id": {
+            ".write": "auth != null && auth.uid !== data.parent().parent().child('hostUid').val()"
+          }
+        }
+      }
+    }
+  }
+}
