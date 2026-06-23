@@ -56,6 +56,11 @@ export default function Home() {
       <button className="btn btn-ghost" onClick={() => navigate('/create')}>
         + Create a game
       </button>
+
+      <div className="home-divider">or</div>
+      <button className="btn btn-feedback" onClick={() => navigate('/feedback')}>
+        Give Feedback
+      </button>
     </div>
   );
 }
