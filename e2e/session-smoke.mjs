@@ -548,6 +548,87 @@ async function run() {
   await mixHost.close();
   delete globalThis.__pages.mixHost;
 
+
+  // ───────────────────────────── 8g. Word cloud question inside a QUIZ game
+  // Same shape as 8f: confirm the question-level gating applies to word cloud
+  // too, and that a mixed game transitions from a scored question into an
+  // activity question without a reveal step.
+  log('\n[8g] Word cloud question inside a quiz game');
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+
+  const wqHost = await hostCtx.newPage();
+  globalThis.__pages.wqHost = wqHost;
+  await wqHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await wqHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
+  await wqHost.getByRole('button', { name: /Start New Game/i }).click();
+  await wqHost.waitForURL(/\/create\?/, { timeout: 20000 });
+  await wqHost.locator('.game-type-card').first().waitFor({ state: 'visible', timeout: 25000 });
+  await wqHost.locator('.game-type-card', { hasText: 'Quiz' }).first().click();
+  await wqHost.waitForURL(/\/create\/setup/, { timeout: 20000 });
+
+  // Q1 stays multiple choice, Q2 is added as a word cloud
+  await wqHost.getByPlaceholder(/Question text/i).first().fill('What is 5 + 5?');
+  for (const [l, v] of [['A', '9'], ['B', '10'], ['C', '11'], ['D', '12']]) {
+    await wqHost.getByPlaceholder(`Answer ${l}`).first().fill(v);
+  }
+  await wqHost.locator('input[type=radio]').nth(1).check();
+  await wqHost.getByRole('button', { name: /Add Word Cloud/i }).click();
+  await wqHost.waitForTimeout(600);
+  await wqHost.getByPlaceholder(/Question text/i).nth(1).fill('Describe this quiz in a word');
+  check('a quiz can mix a scored question with a word cloud question',
+        await wqHost.locator('.question-editor').count() === 2);
+  await wqHost.getByRole('button', { name: /Launch Game Now/i }).click();
+  await wqHost.waitForURL(/\/host\?/, { timeout: 20000 });
+
+  await player.waitForURL(/\/play\?pin=/, { timeout: 30000 });
+  const startQ = wqHost.getByRole('button', { name: /Start Game/i });
+  await startQ.waitFor({ state: 'visible', timeout: 25000 });
+  await wqHost.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find(x => /Start Game/i.test(x.textContent));
+    return b && !b.disabled;
+  }, null, { timeout: 25000 }).catch(() => {});
+  await startQ.click({ timeout: 25000 });
+
+  // Q1 is a normal scored question: reveal SHOULD be available here
+  await player.locator('.answer-btn').first().waitFor({ state: 'visible', timeout: 25000 });
+  await player.locator('.answer-btn').nth(1).click();
+  await wqHost.waitForTimeout(1500);
+  check('scored question in the same game still offers Reveal Answer',
+        await wqHost.getByRole('button', { name: /Reveal Answer/i }).count() > 0);
+  await wqHost.getByRole('button', { name: /Reveal Answer/i }).click({ timeout: 25000 });
+  await wqHost.getByRole('button', { name: /Show Scoreboard/i }).click({ timeout: 25000 });
+  await wqHost.getByRole('button', { name: /Next Question/i }).click({ timeout: 25000 });
+  await wqHost.waitForTimeout(2500);
+
+  // Q2 is the word cloud: no reveal, cloud stage, advance action
+  check('word cloud question in a quiz shows NO Reveal Answer',
+        await wqHost.getByRole('button', { name: /Reveal Answer/i }).count() === 0);
+  check('word cloud question in a quiz shows the cloud stage',
+        await wqHost.locator('.wc-stage').count() > 0);
+  check('word cloud question in a quiz has no question numbering on the stage',
+        !/\bQ2\s*\/\s*\d/.test(await wqHost.locator('.wc-host').innerText().catch(() => '')));
+  check('word cloud question in a quiz offers an advance action',
+        await wqHost.getByRole('button', { name: /End Game|Next Question/i }).count() > 0);
+
+  const wqInput = player.getByPlaceholder(/Type your answer/i);
+  await wqInput.waitFor({ state: 'visible', timeout: 25000 });
+  check('player gets the word cloud input inside a quiz game', true);
+  await wqInput.fill('thorough');
+  await player.getByRole('button', { name: /Send/i }).first().click();
+  await wqHost.waitForTimeout(3000);
+  check('host counts the word cloud response in a quiz',
+        /1 response/i.test(await wqHost.locator('body').innerText()));
+
+  // finishing the activity question ends the game (it was the last one)
+  await wqHost.getByRole('button', { name: /End Game/i }).first().click();
+  await wqHost.waitForTimeout(5000);
+  const wqEnd = await wqHost.locator('body').innerText();
+  check('scored game with an activity question still ends on results',
+        /Final Results/i.test(wqEnd), wqEnd.replace(/\n+/g, ' | ').slice(0, 70));
+  await wqHost.close();
+  delete globalThis.__pages.wqHost;
+
   // ───────────────────────────── 9. Host rejoin from a different "device"
   log('\n[9] Host password rejoin from a fresh device');
   const newDeviceCtx = await browser.newContext();   // fresh storage => new anon uid
