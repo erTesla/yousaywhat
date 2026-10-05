@@ -78,8 +78,8 @@ export default function SessionRejoin() {
             maxLength={64}
           />
           {error && <p className="error-msg">{error}</p>}
-          <button className="btn btn-primary btn-large" type="submit" disabled={busy}>
-            {busy ? 'Verifying…' : 'Rejoin Session →'}
+          <button className="btn btn-primary btn-large" type="submit" disabled={busy || !user}>
+            {busy ? 'Verifying…' : !user ? 'Connecting…' : 'Rejoin Session →'}
           </button>
         </form>
 

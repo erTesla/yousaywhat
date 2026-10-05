@@ -498,7 +498,12 @@ async function run() {
 
   // A stranger with the code but no password must be refused
   await dev2.goto(`${BASE}/session/rejoin?code=${code}`, { waitUntil: 'networkidle' });
-  await dev2.waitForTimeout(2500);
+  // the submit stays disabled until anonymous auth resolves
+  await dev2.getByRole('button', { name: /Rejoin Session/i }).waitFor({ state: 'visible', timeout: 25000 });
+  await dev2.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find(x => /Rejoin Session/i.test(x.textContent));
+    return b && !b.disabled;
+  }, null, { timeout: 25000 });
   await dev2.getByPlaceholder(/Host password/i).fill('definitely-wrong-password');
   await dev2.getByRole('button', { name: /Rejoin Session/i }).click();
   await dev2.waitForTimeout(4000);
