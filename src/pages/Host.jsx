@@ -12,6 +12,7 @@ import Podium from '../components/Podium';
 import Chat from '../components/Chat';
 import Reactions from '../components/Reactions';
 import TeamLeaderboard from '../components/TeamLeaderboard';
+import WordCloud from '../components/WordCloud';
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -241,17 +242,21 @@ export default function Host() {
             onExpired={handleTimerExpired}
           />
 
-          <div className="host-choices-grid">
-            {game.currentQuestion.choices.map((c, i) => {
-              const cnt = Object.values(answers).filter(a => a.choice === i).length;
-              return (
-                <div key={i} className={`host-choice host-choice-${i}`}>
-                  <span className="hc-text">{c}</span>
-                  <span className="hc-count">{cnt}</span>
-                </div>
-              );
-            })}
-          </div>
+          {game.currentQuestion.type === 'wordcloud' ? (
+            <WordCloud answers={answers} />
+          ) : (
+            <div className="host-choices-grid">
+              {game.currentQuestion.choices.map((c, i) => {
+                const cnt = Object.values(answers).filter(a => a.choice === i).length;
+                return (
+                  <div key={i} className={`host-choice host-choice-${i}`}>
+                    <span className="hc-text">{c}</span>
+                    <span className="hc-count">{cnt}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {(timerDone || allAnswered) && (
             <button
@@ -268,20 +273,24 @@ export default function Host() {
       {/* ── REVEAL ── */}
       {status === 'reveal' && game.reveal && game.currentQuestion && (
         <div className="host-section">
-          <h2>Answer Revealed</h2>
-          <div className="host-choices-grid">
-            {game.currentQuestion.choices.map((c, i) => {
-              const cnt     = Object.values(answers).filter(a => a.choice === i).length;
-              const correct = i === game.reveal.correct;
-              return (
-                <div key={i} className={`host-choice host-choice-${i}${correct ? ' hc-correct' : ' hc-wrong'}`}>
-                  <span className="hc-text">{c}</span>
-                  <span className="hc-count">{cnt}</span>
-                  {correct && <span className="hc-tick">✓</span>}
-                </div>
-              );
-            })}
-          </div>
+          <h2>{game.currentQuestion.type === 'wordcloud' ? '☁️ Results' : 'Answer Revealed'}</h2>
+          {game.currentQuestion.type === 'wordcloud' ? (
+            <WordCloud answers={answers} />
+          ) : (
+            <div className="host-choices-grid">
+              {game.currentQuestion.choices.map((c, i) => {
+                const cnt     = Object.values(answers).filter(a => a.choice === i).length;
+                const correct = i === game.reveal.correct;
+                return (
+                  <div key={i} className={`host-choice host-choice-${i}${correct ? ' hc-correct' : ' hc-wrong'}`}>
+                    <span className="hc-text">{c}</span>
+                    <span className="hc-count">{cnt}</span>
+                    {correct && <span className="hc-tick">✓</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <button className="btn btn-primary btn-large" onClick={showScoreboard} disabled={busy}>
             Show Scoreboard
           </button>

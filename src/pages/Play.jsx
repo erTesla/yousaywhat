@@ -175,7 +175,17 @@ export default function Play() {
           />
         </div>
 
-        {myAnswer === null ? (
+        {currentQuestion.type === 'wordcloud' ? (
+          myAnswer === null ? (
+            <WordCloudInput question={currentQuestion} pin={pin} user={user} onSubmit={txt => setMyAnswer(txt)} />
+          ) : (
+            <div className="answered-splash">
+              <div className="answered-check">✓</div>
+              <h2>"{myAnswer}"</h2>
+              <p className="muted">Waiting for everyone else…</p>
+            </div>
+          )
+        ) : myAnswer === null ? (
           <>
             <h2 className="play-question">{currentQuestion.text}</h2>
             <div className="answer-grid">
@@ -206,17 +216,18 @@ export default function Play() {
 
   // ── REVEAL ───────────────────────────────────────────────────────────────────
   if (status === 'reveal' && reveal && currentQuestion) {
-    const isCorrect = myAnswer === reveal.correct;
-    const points    = myPlayer?.lastPoints || 0;
+    const isWordCloud = currentQuestion.type === 'wordcloud';
+    const isCorrect   = !isWordCloud && myAnswer === reveal.correct;
+    const points      = myPlayer?.lastPoints || 0;
 
     return (
       <div className="page play-reveal">
         {scorePop && (
           <div className="score-pop" key={scorePop}>+{scorePop} pts</div>
         )}
-        <div className={`reveal-banner ${isCorrect ? 'reveal-correct' : 'reveal-wrong'}`}>
-          <span className="reveal-emoji">{isCorrect ? '🎉' : '😬'}</span>
-          <h2>{isCorrect ? 'Correct!' : 'Wrong!'}</h2>
+        <div className={`reveal-banner ${isWordCloud ? 'reveal-wordcloud' : isCorrect ? 'reveal-correct' : 'reveal-wrong'}`}>
+          <span className="reveal-emoji">{isWordCloud ? '☁️' : isCorrect ? '🎉' : '😬'}</span>
+          <h2>{isWordCloud ? 'See the cloud!' : isCorrect ? 'Correct!' : 'Wrong!'}</h2>
           {isCorrect && <p className="reveal-points">+{points} pts</p>}
         </div>
 
@@ -279,4 +290,43 @@ export default function Play() {
 
 function Splash({ children }) {
   return <div className="page page-centered"><p className="muted">{children}</p></div>;
+}
+
+function WordCloudInput({ question, pin, user, onSubmit }) {
+  const [text, setText] = useState('');
+  const [sent, setSent] = useState(false);
+
+  async function submit() {
+    const trimmed = text.trim().slice(0, 40);
+    if (!trimmed || sent) return;
+    setSent(true);
+    onSubmit(trimmed);
+    try {
+      await set(ref(db, `games/${pin}/answers/${user.uid}`), {
+        text,
+        elapsed: question.startedAt ? Math.max(0, Date.now() - question.startedAt) : 0,
+      });
+    } catch { /* keep local lock */ }
+  }
+
+  return (
+    <div className="wc-input-screen">
+      <h2 className="play-question">{question.text}</h2>
+      <div className="wc-input-wrap">
+        <input
+          className="text-input wc-text-input"
+          placeholder="Type your answer…"
+          value={text}
+          onChange={e => setText(e.target.value.slice(0, 40))}
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          autoFocus
+          maxLength={40}
+          disabled={sent}
+        />
+        <button className="btn btn-primary" onClick={submit} disabled={!text.trim() || sent}>
+          Send ➤
+        </button>
+      </div>
+    </div>
+  );
 }

@@ -7,9 +7,18 @@ import { generatePin, generateSecret } from '../utils/game';
 
 const BLANK_Q = () => ({
   text: '',
+  type: 'mcq',
   choices: ['', '', '', ''],
   correct: 0,
   timeLimit: 20,
+});
+
+const BLANK_WC = () => ({
+  text: '',
+  type: 'wordcloud',
+  choices: [],
+  correct: null,
+  timeLimit: 30,
 });
 
 const SAMPLE_QUESTIONS = [
@@ -132,8 +141,10 @@ export default function HostSetup() {
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.text.trim()) return `Q${i + 1}: question text is required`;
-      for (let j = 0; j < 4; j++) {
-        if (!q.choices[j].trim()) return `Q${i + 1}: answer ${LABELS[j]} is empty`;
+      if (q.type !== 'wordcloud') {
+        for (let j = 0; j < 4; j++) {
+          if (!q.choices[j].trim()) return `Q${i + 1}: answer ${LABELS[j]} is empty`;
+        }
       }
     }
     return null;
@@ -159,8 +170,9 @@ export default function HostSetup() {
         reveal:          null,
         questions: questions.map(q => ({
           text:      q.text.trim(),
-          choices:   q.choices.map(c => c.trim()),
-          correct:   q.correct,
+          type:      q.type || 'mcq',
+          choices:   q.type === 'wordcloud' ? [] : q.choices.map(c => c.trim()),
+          correct:   q.type === 'wordcloud' ? null : q.correct,
           timeLimit: Number(q.timeLimit),
         })),
       });
@@ -208,6 +220,19 @@ export default function HostSetup() {
             <div className="q-editor-header">
               <span className="q-num">Q{qi + 1}</span>
               <select
+                value={q.type || 'mcq'}
+                onChange={e => {
+                  const t = e.target.value;
+                  updateQ(qi, 'type', t);
+                  if (t === 'wordcloud') { updateQ(qi, 'choices', []); updateQ(qi, 'correct', null); }
+                  else if (!q.choices.length) updateQ(qi, 'choices', ['', '', '', '']);
+                }}
+                className="time-select"
+              >
+                <option value="mcq">Multiple choice</option>
+                <option value="wordcloud">Word cloud</option>
+              </select>
+              <select
                 value={q.timeLimit}
                 onChange={e => updateQ(qi, 'timeLimit', Number(e.target.value))}
                 className="time-select"
@@ -233,28 +258,34 @@ export default function HostSetup() {
               onChange={e => updateQ(qi, 'text', e.target.value)}
             />
 
-            <div className="choices-grid">
-              {q.choices.map((c, ci) => (
-                <div key={ci} className={`choice-wrap choice-color-${ci}`}>
-                  <label className="correct-radio" title="Mark as correct">
+            {(q.type || 'mcq') === 'wordcloud' ? (
+              <p className="muted" style={{ fontSize: '0.85rem', textAlign: 'center', padding: '8px 0' }}>
+                ☁️ Players type a short answer — shown as a live word cloud.
+              </p>
+            ) : (
+              <div className="choices-grid">
+                {(q.choices.length ? q.choices : ['', '', '', '']).map((c, ci) => (
+                  <div key={ci} className={`choice-wrap choice-color-${ci}`}>
+                    <label className="correct-radio" title="Mark as correct">
+                      <input
+                        type="radio"
+                        name={`correct-${qi}`}
+                        checked={q.correct === ci}
+                        onChange={() => updateQ(qi, 'correct', ci)}
+                      />
+                      <span className="choice-lbl">{LABELS[ci]}</span>
+                    </label>
                     <input
-                      type="radio"
-                      name={`correct-${qi}`}
-                      checked={q.correct === ci}
-                      onChange={() => updateQ(qi, 'correct', ci)}
+                      className="text-input"
+                      type="text"
+                      placeholder={`Answer ${LABELS[ci]}`}
+                      value={c}
+                      onChange={e => updateChoice(qi, ci, e.target.value)}
                     />
-                    <span className="choice-lbl">{LABELS[ci]}</span>
-                  </label>
-                  <input
-                    className="text-input"
-                    type="text"
-                    placeholder={`Answer ${LABELS[ci]}`}
-                    value={c}
-                    onChange={e => updateChoice(qi, ci, e.target.value)}
-                  />
-                </div>
-              ))}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -262,6 +293,9 @@ export default function HostSetup() {
       <div className="setup-footer">
         <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_Q()])}>
           + Add Question
+        </button>
+        <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_WC()])}>
+          ☁️ Add Word Cloud
         </button>
         {error && <p className="error-msg">{error}</p>}
         <button className="btn btn-primary btn-large" onClick={handleLaunch} disabled={launching}>
