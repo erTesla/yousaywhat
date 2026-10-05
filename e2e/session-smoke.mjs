@@ -276,6 +276,70 @@ async function run() {
   await d3.close();
   delete globalThis.__pages.d3;
 
+  // ───────────────────────────── 8c. Word cloud: its own flow end to end
+  log('\n[8c] Word cloud dedicated flow');
+  const wcHost = await hostCtx.newPage();
+  globalThis.__pages.wcHost = wcHost;
+  await wcHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await wcHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
+  await wcHost.getByRole('button', { name: /Start New Game/i }).click();
+  await wcHost.waitForURL(/\/create\?/, { timeout: 20000 });
+  await wcHost.locator('.game-type-card').first().waitFor({ state: 'visible', timeout: 25000 });
+  await wcHost.locator('.game-type-card', { hasText: 'Word Cloud' }).first().click();
+  await wcHost.waitForURL(/\/create\/setup/, { timeout: 20000 });
+
+  check('word cloud setup is a single prompt (no add-question buttons)',
+        await wcHost.getByRole('button', { name: /Add Question/i }).count() === 0);
+  check('word cloud setup hides the question type dropdown',
+        await wcHost.locator('select').count() <= 1);
+  await wcHost.getByPlaceholder(/Your prompt/i).fill('One word for today?');
+  await wcHost.getByRole('button', { name: /Open Word Cloud/i }).click();
+  await wcHost.waitForURL(/\/host\?/, { timeout: 20000 });
+
+  // player gets pulled in and submits a word
+  await player.waitForURL(/\/play\?pin=/, { timeout: 25000 });
+  // lobby -> live: the host opens the cloud
+  await wcHost.getByRole('button', { name: /Open Word Cloud/i }).click({ timeout: 25000 });
+  const wcInput = player.getByPlaceholder(/Type your answer/i);
+  await wcInput.waitFor({ state: 'visible', timeout: 25000 });
+  await wcInput.fill('sunny');
+  await player.getByRole('button', { name: /Send/i }).first().click();
+  await player.waitForTimeout(3000);
+
+  check('no Reveal Answer button on a word cloud',
+        await wcHost.getByRole('button', { name: /Reveal Answer/i }).count() === 0);
+  check('host shows Save & back to dashboard',
+        await wcHost.getByRole('button', { name: /Save & back to dashboard/i }).count() > 0);
+  check('host shows End word cloud',
+        await wcHost.getByRole('button', { name: /End word cloud/i }).count() > 0);
+  const wcBody = await wcHost.locator('body').innerText();
+  check('host screen has no question numbering', !/\bQ1\s*\/\s*\d/.test(wcBody));
+  check('host sees the live response count', /1 response/i.test(wcBody),
+        (wcBody.match(/\d+ responses?[^\n]*/) || [''])[0]);
+
+  // End it — players should be released back to the session
+  await wcHost.getByRole('button', { name: /End word cloud/i }).click();
+  await wcHost.waitForTimeout(4000);
+  check('ended word cloud shows the cloud, not a podium',
+        /word cloud closed/i.test(await wcHost.locator('body').innerText()));
+  await player.waitForTimeout(3000);
+  const wcPlayer = await player.locator('body').innerText();
+  check('player gets an activity end screen with no scores',
+        /no points/i.test(wcPlayer) && !/You Won/i.test(wcPlayer),
+        wcPlayer.replace(/\n+/g, ' | ').slice(0, 80));
+
+  // dashboard mini view
+  const wcDash = await hostCtx.newPage();
+  await wcDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await wcDash.locator('.session-clouds-card').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  const cloudTxt = await wcDash.locator('.session-clouds-card').innerText().catch(() => '');
+  check('saved cloud appears on the dashboard in a small view',
+        /One word for today/.test(cloudTxt) && /sunny/.test(cloudTxt),
+        cloudTxt.replace(/\n+/g, ' | ').slice(0, 90));
+  await wcDash.close();
+  await wcHost.close();
+  delete globalThis.__pages.wcHost;
+
   // ───────────────────────────── 9. Host rejoin from a different "device"
   log('\n[9] Host password rejoin from a fresh device');
   const newDeviceCtx = await browser.newContext();   // fresh storage => new anon uid
