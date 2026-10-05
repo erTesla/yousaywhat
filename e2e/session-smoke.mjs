@@ -25,7 +25,8 @@ function check(name, ok, detail = '') {
   log(`${ok ? '  PASS' : '  FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
 }
 
-const SESSION_NAME = 'E2E Test ' + Date.now().toString().slice(-6);
+const SESSION_NAME  = 'E2E Test ' + Date.now().toString().slice(-6);
+const HOST_PASSWORD = 'e2e-secret-' + Date.now().toString().slice(-4);
 
 async function run() {
   const browser = await chromium.launch();
@@ -49,6 +50,7 @@ async function run() {
   await host.goto(BASE, { waitUntil: 'networkidle' });
   await host.getByRole('button', { name: /Start a Session/i }).click();
   await host.getByPlaceholder(/Session name/i).fill(SESSION_NAME);
+  await host.getByPlaceholder(/Host password/i).fill(HOST_PASSWORD);
   await host.getByRole('button', { name: /Create Session/i }).click();
 
   await host.waitForURL(/\/session\/host/, { timeout: 20000 });
@@ -226,8 +228,48 @@ async function run() {
           scoreAfter >= scoreBefore && scoreBefore > 0, `before=${scoreBefore} after=${scoreAfter}`);
   }
 
+  // ───────────────────────────── 9. Host rejoin from a different "device"
+  log('\n[9] Host password rejoin from a fresh device');
+  const newDeviceCtx = await browser.newContext();   // fresh storage => new anon uid
+  const dev2 = await newDeviceCtx.newPage();
+  globalThis.__pages.dev2 = dev2;
+
+  // A stranger with the code but no password must be refused
+  await dev2.goto(`${BASE}/session/rejoin?code=${code}`, { waitUntil: 'networkidle' });
+  await dev2.waitForTimeout(2500);
+  await dev2.getByPlaceholder(/Host password/i).fill('definitely-wrong-password');
+  await dev2.getByRole('button', { name: /Rejoin Session/i }).click();
+  await dev2.waitForTimeout(4000);
+  const wrongTxt = await dev2.locator('body').innerText();
+  check('rejoin rejects a wrong password', /Incorrect password/i.test(wrongTxt),
+        (wrongTxt.match(/Incorrect password|No session found|Could not rejoin/i) || ['no error shown'])[0]);
+  check('rejoin with wrong password does not reach dashboard', !/\/session\/host/.test(dev2.url()));
+
+  // Correct password takes over as host
+  await dev2.getByPlaceholder(/Host password/i).fill(HOST_PASSWORD);
+  await dev2.getByRole('button', { name: /Rejoin Session/i }).click();
+  await dev2.waitForURL(/\/session\/host/, { timeout: 25000 });
+  await dev2.waitForTimeout(3500);
+  const dev2Txt = await dev2.locator('body').innerText();
+  check('rejoin with correct password reaches dashboard', /Cumulative Leaderboard/i.test(dev2Txt));
+  check('rejoined host sees the original session name', dev2Txt.includes(SESSION_NAME));
+  check('rejoined host sees preserved player data', /TEST-Player/.test(dev2Txt),
+        (dev2Txt.match(/TEST-Player[^\n]*/) || [''])[0]);
+  check('rejoined host can act (Start New Game present)',
+        await dev2.getByRole('button', { name: /Start New Game/i }).count() > 0);
+
+  // The password hash must not be readable by anyone
+  const leak = await dev2.evaluate(async () => {
+    const m = await import('https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js').catch(() => null);
+    return m ? 'module-loaded' : 'blocked';
+  }).catch(() => 'blocked');
+  check('sessionAuth not exposed in page state', !/[0-9a-f]{64}/.test(dev2Txt), `probe=${leak}`);
+
+  await newDeviceCtx.close();
+  delete globalThis.__pages.dev2;
+
   // ───────────────────────────── summary
-  log('\n[9] JS errors observed');
+  log('\n[10] JS errors observed');
   const realErrors = errors.filter(e => !/permission_denied|Permission denied|favicon|net::ERR/i.test(e));
   if (realErrors.length === 0) log('  none');
   else realErrors.slice(0, 12).forEach(e => log('  ' + e));

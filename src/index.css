@@ -1746,3 +1746,18 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 @media (max-width: 360px) {
   .pin-input { font-size: 1.4rem; letter-spacing: 2px; }
 }
+
+/* Form field hint text */
+.field-hint {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.home-rejoin-link {
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+/* Access-denied card stacks two actions */
+.page-centered .card .btn + .btn { margin-top: 10px; }

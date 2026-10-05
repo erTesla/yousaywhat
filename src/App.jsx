@@ -15,6 +15,7 @@ import SessionCreate  from './pages/SessionCreate';
 import SessionHost    from './pages/SessionHost';
 import SessionJoin    from './pages/SessionJoin';
 import SessionPlay    from './pages/SessionPlay';
+import SessionRejoin  from './pages/SessionRejoin';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/session/host"    element={<SessionHost />}   />
         <Route path="/session/join"    element={<SessionJoin />}   />
         <Route path="/session/play"    element={<SessionPlay />}   />
+        <Route path="/session/rejoin"  element={<SessionRejoin />} />
       </Routes>
     </BrowserRouter>
   );

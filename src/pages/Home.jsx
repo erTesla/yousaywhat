@@ -85,6 +85,9 @@ export default function Home() {
         <button className="btn btn-ghost home-create-btn" style={{ marginTop: 8 }} onClick={() => navigate('/session/create')}>
           🔁 Start a Session
         </button>
+        <button className="btn-back home-rejoin-link" onClick={() => navigate('/session/rejoin')}>
+          Hosting already? Rejoin your session →
+        </button>
 
         <div className="home-divider">or</div>
         <button className="btn btn-feedback" onClick={() => navigate('/feedback')}>

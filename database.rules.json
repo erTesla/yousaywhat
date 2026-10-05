@@ -13,10 +13,26 @@
       }
     },
 
+    "sessionAuth": {
+      "$code": {
+        ".read": false,
+        "passwordHash": {
+          ".write": "auth != null && (!data.exists() || root.child('sessions').child($code).child('hostUid').val() === auth.uid)",
+          ".validate": "newData.isString() && newData.val().length === 64"
+        },
+        "claims": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && newData.val() === root.child('sessionAuth').child($code).child('passwordHash').val()",
+            ".validate": "newData.isString() && newData.val().length === 64"
+          }
+        }
+      }
+    },
+
     "sessions": {
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && (!data.exists() || auth.uid === data.child('hostUid').val())",
+        ".write": "auth != null && (!data.exists() || auth.uid === data.child('hostUid').val() || root.child('sessionAuth').child($code).child('claims').child(auth.uid).exists())",
 
         "players": {
           "$uid": {

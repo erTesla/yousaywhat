@@ -81,10 +81,19 @@ export default function SessionHost() {
   if (verified === false) {
     return (
       <div className="page page-centered">
-        <div className="card" style={{ textAlign: 'center', maxWidth: 360 }}>
-          <h2>Access Denied</h2>
-          <p className="muted">You are not the host of this session.</p>
-          <button className="btn btn-primary" onClick={() => navigate('/')}>Go Home</button>
+        <div className="card" style={{ textAlign: 'center', maxWidth: 380 }}>
+          <h2>Not signed in as host</h2>
+          <p className="muted">
+            This device isn't the host of <strong>{code}</strong> — either another device took
+            over, or this browser's session was cleared.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate(`/session/rejoin?code=${code}`)}
+          >
+            Rejoin with password →
+          </button>
+          <button className="btn btn-ghost" onClick={() => navigate('/')}>Go Home</button>
         </div>
       </div>
     );
