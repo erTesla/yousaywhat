@@ -51,6 +51,124 @@ body { margin: 0; }
   text-align: center;
 }
 
+/* ── Home two-column layout ────────────────────────────────────────────────── */
+.home-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100svh;
+}
+
+@media (max-width: 700px) {
+  .home-layout {
+    grid-template-columns: 1fr;
+  }
+  .home-right {
+    border-top: 1px solid var(--border);
+    border-left: none !important;
+  }
+}
+
+.home-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.home-create-btn { width: 100%; max-width: 380px; }
+
+.home-right {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* Mini leaderboard */
+.mini-lb {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px 16px;
+  gap: 12px;
+  overflow: hidden;
+}
+.mini-lb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 1rem;
+}
+.mini-lb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Create game type picker ───────────────────────────────────────────────── */
+.create-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+
+.game-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  width: 100%;
+}
+@media (max-width: 480px) {
+  .game-type-grid { grid-template-columns: 1fr; }
+}
+
+.game-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.12s, background 0.15s;
+  text-align: center;
+}
+.game-type-card:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: rgba(233,69,96,0.06);
+  transform: translateY(-2px);
+}
+.game-type-card:active:not(:disabled) { transform: scale(0.97); }
+.game-type-card:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.gtc-icon  { font-size: 2.4rem; line-height: 1; }
+.gtc-label { font-size: 1.05rem; font-weight: 800; }
+.gtc-desc  { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+
+/* Setup PIN tag */
+.setup-pin-tag {
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  padding: 4px 12px;
+  margin-left: auto;
+}
+
 /* ── Typography ────────────────────────────────────────────────────────────── */
 h1 { font-size: clamp(2rem, 6vw, 3.5rem); font-weight: 800; letter-spacing: -1px; }
 h2 { font-size: clamp(1.3rem, 4vw, 2rem);  font-weight: 700; margin-bottom: 12px; }

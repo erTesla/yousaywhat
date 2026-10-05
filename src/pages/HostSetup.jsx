@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ref, set } from 'firebase/database';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ref, set, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generatePin, generateSecret } from '../utils/game';
@@ -72,10 +72,18 @@ function parseImport(raw) {
 
 export default function HostSetup() {
   const navigate      = useNavigate();
+  const [params]      = useSearchParams();
   const user          = useAuth();
   const fileInputRef  = useRef(null);
 
-  const [questions, setQuestions] = useState([BLANK_Q()]);
+  // When coming from Create picker, session already exists
+  const existingPin    = params.get('pin');
+  const existingSecret = params.get('secret');
+  const gameType       = params.get('type') || 'quiz';
+
+  const defaultQ = gameType === 'wordcloud' ? BLANK_WC() : BLANK_Q();
+
+  const [questions, setQuestions] = useState([defaultQ]);
   const [launching, setLaunching] = useState(false);
   const [error,     setError]     = useState('');
   const [importMsg, setImportMsg] = useState('');
@@ -158,25 +166,34 @@ export default function HostSetup() {
     setLaunching(true);
     setError('');
 
-    const pin    = generatePin();
-    const secret = generateSecret();
+    const qs = questions.map(q => ({
+      text:      q.text.trim(),
+      type:      q.type || 'mcq',
+      choices:   q.type === 'wordcloud' ? [] : q.choices.map(c => c.trim()),
+      correct:   q.type === 'wordcloud' ? null : q.correct,
+      timeLimit: Number(q.timeLimit),
+    }));
 
     try {
-      await set(ref(db, `games/${pin}`), {
-        hostUid:         user.uid,
-        hostSecret:      secret,
-        status:          'lobby',
-        currentQuestion: null,
-        reveal:          null,
-        questions: questions.map(q => ({
-          text:      q.text.trim(),
-          type:      q.type || 'mcq',
-          choices:   q.type === 'wordcloud' ? [] : q.choices.map(c => c.trim()),
-          correct:   q.type === 'wordcloud' ? null : q.correct,
-          timeLimit: Number(q.timeLimit),
-        })),
-      });
-      navigate(`/host?pin=${pin}&secret=${secret}`);
+      if (existingPin && existingSecret) {
+        // Session already created by picker — just write questions
+        await update(ref(db, `games/${existingPin}`), { questions: qs });
+        navigate(`/host?pin=${existingPin}&secret=${existingSecret}`);
+      } else {
+        // Legacy flow (direct /create route)
+        const pin    = generatePin();
+        const secret = generateSecret();
+        await set(ref(db, `games/${pin}`), {
+          hostUid:         user.uid,
+          hostSecret:      secret,
+          status:          'lobby',
+          currentQuestion: null,
+          reveal:          null,
+          chatEnabled:     true,
+          questions:       qs,
+        });
+        navigate(`/host?pin=${pin}&secret=${secret}`);
+      }
     } catch (e) {
       setError('Failed to create game: ' + e.message);
       setLaunching(false);
@@ -198,7 +215,10 @@ export default function HostSetup() {
 
       <div className="setup-header">
         <button className="btn-back" onClick={() => navigate('/')}>← Back</button>
-        <h1>Create Your Quiz</h1>
+        <h1>Build Your Session</h1>
+        {existingPin && (
+          <div className="setup-pin-tag">PIN: <strong>{existingPin}</strong></div>
+        )}
         <div className="setup-header-actions">
           <button className="btn btn-ghost" onClick={() => { setQuestions(SAMPLE_QUESTIONS); setImportMsg(''); setError(''); }}>
             Samples
