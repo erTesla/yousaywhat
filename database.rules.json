@@ -15,15 +15,19 @@
 
     "sessions": {
       "$code": {
-        ".read": true,
+        ".read": "auth != null",
         ".write": "auth != null && (!data.exists() || auth.uid === data.child('hostUid').val())",
-        "hostSecret": {
-          ".read": "auth != null && auth.uid === data.parent().child('hostUid').val()"
-        },
+
         "players": {
-          ".read": true,
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid"
+            "name": {
+              ".write": "auth != null && auth.uid === $uid",
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30"
+            },
+            "joinedAt": {
+              ".write": "auth != null && auth.uid === $uid",
+              ".validate": "newData.isNumber()"
+            }
           }
         }
       }
@@ -32,7 +36,10 @@
     "globalLeaderboard": {
       ".read": true,
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid && (!data.exists() || newData.child('totalScore').val() >= data.child('totalScore').val())",
+        "name":        { ".validate": "newData.isString() && newData.val().length <= 30" },
+        "totalScore":  { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "gamesPlayed": { ".validate": "newData.isNumber() && newData.val() >= 0" }
       }
     },
 

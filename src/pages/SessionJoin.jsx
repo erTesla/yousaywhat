@@ -34,14 +34,12 @@ export default function SessionJoin() {
     setBusy(true);
     setError('');
     try {
-      const existingSnap = await get(ref(db, `sessions/${code}/players/${user.uid}`));
-      const existing = existingSnap.val() || {};
-      await update(ref(db, `sessions/${code}/players/${user.uid}`), {
-        name:        name.trim(),
-        totalScore:  existing.totalScore  ?? 0,
-        gamesPlayed: existing.gamesPlayed ?? 0,
-        joinedAt:    existing.joinedAt    ?? Date.now(),
-      });
+      // Only name/joinedAt are player-writable — totalScore and gamesPlayed are
+      // host-written, so a player can't forge their own session score.
+      const existingSnap = await get(ref(db, `sessions/${code}/players/${user.uid}/joinedAt`));
+      const payload = { name: name.trim() };
+      if (!existingSnap.exists()) payload.joinedAt = Date.now();
+      await update(ref(db, `sessions/${code}/players/${user.uid}`), payload);
       navigate(`/session/play?code=${code}`);
     } catch {
       setError('Could not join — check your connection');

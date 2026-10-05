@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref, set } from 'firebase/database';
+import { ref, get, set } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generateSessionCode } from '../utils/session';
@@ -20,13 +20,28 @@ export default function SessionCreate() {
     setBusy(true);
     setError('');
 
-    const code   = generateSessionCode();
     const secret = generateSecret();
 
     try {
+      // Codes are random, so retry on the rare collision rather than letting the
+      // rule deny the overwrite and surfacing it as a connection error.
+      let code = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = generateSessionCode();
+        const taken = await get(ref(db, `sessions/${candidate}/hostUid`));
+        if (!taken.exists()) { code = candidate; break; }
+      }
+      if (!code) {
+        setError('Could not allocate a session code — please try again');
+        setBusy(false);
+        return;
+      }
+
+      // hostSecret is deliberately NOT stored: the session node is readable by
+      // any authed user, and authorization is by hostUid anyway. The secret in
+      // the URL is just an opaque bookmark token.
       await set(ref(db, `sessions/${code}`), {
         hostUid:       user.uid,
-        hostSecret:    secret,
         name:          name.trim(),
         createdAt:     Date.now(),
         status:        'idle',

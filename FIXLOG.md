@@ -41,10 +41,26 @@ questions are saved. Abandoning setup now leaves the session idle instead of str
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 2.1 | `players/$uid` write is unvalidated → player sets own `totalScore: 1e9`, tops both leaderboards | `database.rules.json` | TODO |
-| 2.2 | `hostSecret` readable by anyone (`.read:true` cascades, `.read:false` is dead code) AND vestigial — written 3x, never read from DB | `database.rules.json`, `pages/SessionCreate.jsx:29` | TODO |
-| 2.3 | Session enumeration — unauthenticated `.read:true` over a 180k keyspace harvests all player names/scores/history | `database.rules.json` | TODO |
-| 2.4 | `globalLeaderboard` same forge hole — add monotonic guard | `database.rules.json` | TODO |
+| 2.1 | `players/$uid` write is unvalidated → player sets own `totalScore: 1e9`, tops both leaderboards | `database.rules.json` | DONE |
+| 2.2 | `hostSecret` readable by anyone (`.read:true` cascades, `.read:false` is dead code) AND vestigial — written 3x, never read from DB | `database.rules.json`, `pages/SessionCreate.jsx:29` | DONE |
+| 2.3 | Session enumeration — unauthenticated `.read:true` over a 180k keyspace harvests all player names/scores/history | `database.rules.json` | PARTIAL |
+| 2.4 | `globalLeaderboard` same forge hole — add monotonic guard | `database.rules.json` | PARTIAL |
+
+**2.1** — players can now only write `name` and `joinedAt`, each with a `.validate`.
+`totalScore`/`gamesPlayed` have no player grant, so only the host (via the ancestor rule) can
+write them. `SessionJoin.jsx` updated to stop sending score fields, which would now be denied
+and fail the whole atomic `update()`.
+**2.2** — `hostSecret` is no longer stored on the session node at all. Authorization was always
+by `hostUid`; the URL secret is just an opaque bookmark token. Leak gone.
+Note: `games/{pin}/hostSecret` is NOT a leak — `games/$pin/.read` is host-only, so there is no
+public cascade there (its `.read:false` is inert but harmless), and Resume Game needs it.
+**2.3** — PARTIAL. Changed `.read: true` → `.read: "auth != null"` and grew the keyspace from
+180k to 540k (20→60 words). Anonymous auth is free to obtain, so a determined scraper can still
+enumerate. A real fix needs server-side rate limiting, which Spark doesn't offer — accepting
+this for a quiz app, but it should not hold anything sensitive.
+**2.4** — PARTIAL. Added a monotonic guard (`totalScore` can't decrease) plus type/range
+`.validate`. A player can still write an arbitrarily *high* score; scores are computed
+client-side, so this is unfixable without a server. Mitigation only.
 
 ## Phase 3 — Scoring correctness
 
@@ -59,7 +75,11 @@ questions are saved. Abandoning setup now leaves the session idle instead of str
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 4.1 | Code collision → rule denies write, user sees "check your connection", no retry (~likely at 420 sessions) | `pages/SessionCreate.jsx:23` | TODO |
+| 4.1 | Code collision → rule denies write, user sees "check your connection", no retry (~likely at 420 sessions) | `pages/SessionCreate.jsx:23` | DONE |
+
+**4.1** — `handleCreate` now probes up to 5 candidate codes for an existing `hostUid` and only
+`set()`s an unused one, with a distinct error if all 5 collide. Word list grew 20→60, so the
+birthday-collision threshold moved from ~420 sessions to ~730.
 | 4.2 | Permanent "Verifying…" spinner — no `.catch` on host verify | `pages/SessionHost.jsx:21`, `pages/Host.jsx:36` | DONE |
 | 4.3 | `verified === false` is a bare text dead end; Host.jsx has a proper Access Denied card pattern | `pages/SessionHost.jsx:37` | DONE |
 | 4.4 | `Create.jsx` doesn't uppercase `sessionCode` from URL → lowercase link writes a divergent node | `pages/Create.jsx` | DONE |
