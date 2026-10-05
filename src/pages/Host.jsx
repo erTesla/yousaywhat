@@ -12,11 +12,13 @@ import Chat from '../components/Chat';
 import Reactions from '../components/Reactions';
 import TeamLeaderboard from '../components/TeamLeaderboard';
 import WordCloud from '../components/WordCloud';
+import Splash from '../components/Splash';
+import { tallyChoices, pollBars, wordFrequency } from '../utils/poll';
 
 // Word cloud and poll are activities, not scored games: participation is
 // tracked but no points are awarded and they never affect ranking.
 const ACTIVITY_TYPES = ['wordcloud', 'poll'];
-const isActivityType = q => ACTIVITY_TYPES.includes(q?.type);
+const isActivityQuestion = q => ACTIVITY_TYPES.includes(q?.type);
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -138,11 +140,7 @@ export default function Host() {
     if (q.type === 'wordcloud') {
       entry.words = Object.values(answers).map(a => a.text).filter(Boolean).slice(0, 200);
     } else {
-      const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
-      Object.values(answers).forEach(a => {
-        if (a.choice !== undefined && a.choice !== null) counts[a.choice] = (counts[a.choice] || 0) + 1;
-      });
-      entry.choiceCounts = counts;
+      entry.choiceCounts = { ...tallyChoices(answers) };
       entry.choices      = q.choices || [];
     }
     entry.responseCount = Object.keys(answers).length;
@@ -154,7 +152,7 @@ export default function Host() {
     const q = game.questions[currentIdx];
     setBusy(true);
 
-    const isActivity = isActivityType(q);
+    const isActivity = isActivityQuestion(q);
     const updates = { status: 'reveal', 'reveal/index': currentIdx, 'reveal/correct': q.correct };
 
     updates[`history/${currentIdx}`] = questionHistory(q);
@@ -186,26 +184,16 @@ export default function Host() {
 
     if (type === 'poll') {
       const choices = game.currentQuestion?.choices || game.questions?.[0]?.choices || [];
-      const options = choices.filter(Boolean).map((label, i) => ({
-        label,
-        count: Object.values(answers).filter(a => a.choice === i).length,
-      }));
+      const counts  = tallyChoices(answers);
+      const options = choices.filter(Boolean).map((label, i) => ({ label, count: counts[i] }));
       return { type, prompt, options, responseCount: Object.keys(answers).length, savedAt: Date.now() };
     }
 
     const words = Object.values(answers).map(a => a.text).filter(Boolean);
-    const freq  = {};
-    words.forEach(w => {
-      const k = String(w).trim().toLowerCase();
-      if (k) freq[k] = (freq[k] || 0) + 1;
-    });
     return {
       type,
       prompt,
-      words: Object.entries(freq)
-               .sort((a, b) => b[1] - a[1])
-               .slice(0, 60)
-               .map(([word, count]) => ({ word, count })),
+      words: wordFrequency(words, { limit: 60 }),
       responseCount: words.length,
       savedAt: Date.now(),
     };
@@ -232,7 +220,7 @@ export default function Host() {
             type: 'poll',
             text: snap.prompt,
             choices: (game.currentQuestion?.choices || []).filter(Boolean),
-            choiceCounts: Object.fromEntries((snap.options || []).map((o, i) => [i, o.count])),
+            choiceCounts: { ...tallyChoices(answers) },
             responseCount: snap.responseCount,
           }
         : {
@@ -387,6 +375,7 @@ export default function Host() {
   const playerList   = Object.entries(players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
   const playerCount  = playerList.length;
   const allAnswered  = playerCount > 0 && answerCount >= playerCount;
+  const choiceCounts = tallyChoices(answers);
   // Whole-game activity (picked from the Poll / Word Cloud card)…
   const activityGame    = game.kind === 'activity' || game.gameType === 'wordcloud' || game.gameType === 'poll';
   // …versus the type of the question on screen right now, which is what
@@ -499,22 +488,15 @@ export default function Host() {
               <p className="muted">Waiting for the first {isPollQ ? 'vote' : 'response'}…</p>
             ) : isPollQ ? (
               <div className="host-poll-graph">
-                {(game.currentQuestion.choices || []).filter(Boolean).map((c, i) => {
-                  const count = Object.values(answers).filter(a => a.choice === i).length;
-                  const pct   = Math.round((count / (answerCount || 1)) * 100);
-                  const lead  = count > 0 && count === Math.max(
-                    ...(game.currentQuestion.choices || []).filter(Boolean)
-                      .map((_, j) => Object.values(answers).filter(a => a.choice === j).length));
-                  return (
-                    <div key={i} className={`hpg-row${lead ? ' hpg-lead' : ''}`}>
-                      <span className="hpg-label">{c}</span>
-                      <div className="hpg-track">
-                        <div className="hpg-fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="hpg-val">{pct}% ({count})</span>
+                {pollBars(game.currentQuestion.choices, choiceCounts).map(({ label, count, pct, isLead }) => (
+                  <div key={label} className={`hpg-row${isLead ? ' hpg-lead' : ''}`}>
+                    <span className="hpg-label">{label}</span>
+                    <div className="hpg-track">
+                      <div className="hpg-fill" style={{ width: `${pct}%` }} />
                     </div>
-                  );
-                })}
+                    <span className="hpg-val">{pct}% ({count})</span>
+                  </div>
+                ))}
               </div>
             ) : (
               <WordCloud answers={answers} />
@@ -569,7 +551,7 @@ export default function Host() {
           ) : (
             <div className="host-choices-grid">
               {game.currentQuestion.choices.map((c, i) => {
-                const cnt = Object.values(answers).filter(a => a.choice === i).length;
+                const cnt = choiceCounts[i];
                 return (
                   <div key={i} className={`host-choice host-choice-${i}`}>
                     <span className="hc-text">{c}</span>
@@ -601,7 +583,7 @@ export default function Host() {
           ) : (
             <div className="host-choices-grid">
               {game.currentQuestion.choices.map((c, i) => {
-                const cnt     = Object.values(answers).filter(a => a.choice === i).length;
+                const cnt     = choiceCounts[i];
                 const correct = i === game.reveal.correct;
                 return (
                   <div key={i} className={`host-choice host-choice-${i}${correct ? ' hc-correct' : ' hc-wrong'}`}>
@@ -642,17 +624,13 @@ export default function Host() {
           <div className="wc-stage">
             {game.gameType === 'poll' ? (
               <div className="host-poll-graph">
-                {(game.currentQuestion?.choices || []).filter(Boolean).map((c, i) => {
-                  const count = Object.values(answers).filter(a => a.choice === i).length;
-                  const pct   = Math.round((count / (answerCount || 1)) * 100);
-                  return (
-                    <div key={i} className="hpg-row">
-                      <span className="hpg-label">{c}</span>
-                      <div className="hpg-track"><div className="hpg-fill" style={{ width: `${pct}%` }} /></div>
-                      <span className="hpg-val">{pct}% ({count})</span>
-                    </div>
-                  );
-                })}
+                {pollBars(game.currentQuestion?.choices, choiceCounts).map(({ label, count, pct, isLead }) => (
+                  <div key={label} className={`hpg-row${isLead ? ' hpg-lead' : ''}`}>
+                    <span className="hpg-label">{label}</span>
+                    <div className="hpg-track"><div className="hpg-fill" style={{ width: `${pct}%` }} /></div>
+                    <span className="hpg-val">{pct}% ({count})</span>
+                  </div>
+                ))}
               </div>
             ) : (
               <WordCloud answers={answers} />
@@ -661,7 +639,7 @@ export default function Host() {
           {sessionCode ? (
             <button
               className="btn btn-primary btn-large"
-              onClick={() => navigate(`/session/host?code=${sessionCode}&sessionSecret=${sessionSecret}&secret=${sessionSecret}`)}
+              onClick={() => navigate(`/session/host?code=${sessionCode}&secret=${sessionSecret}`)}
             >
               🔁 Back to Session Dashboard
             </button>
@@ -710,8 +688,4 @@ export default function Host() {
       />
     </div>
   );
-}
-
-function Splash({ children }) {
-  return <div className="page page-centered"><p className="muted">{children}</p></div>;
 }

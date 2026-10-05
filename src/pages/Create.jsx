@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generatePin, generateSecret } from '../utils/game';
 import { isActivityType } from '../utils/session';
+import Splash from '../components/Splash';
 
 const GAME_TYPES = [
   {
@@ -115,8 +116,4 @@ export default function Create() {
       </div>
     </div>
   );
-}
-
-function Splash({ children }) {
-  return <div className="page page-centered"><p className="muted">{children}</p></div>;
 }

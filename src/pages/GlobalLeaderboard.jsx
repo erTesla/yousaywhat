@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, query, orderByChild, limitToLast, onValue } from 'firebase/database';
 import { db } from '../firebase';
-
-const MEDALS = ['🥇', '🥈', '🥉'];
+import ScoreRow from '../components/ScoreRow';
 
 export default function GlobalLeaderboard() {
   const [entries, setEntries] = useState([]);
@@ -43,19 +42,14 @@ export default function GlobalLeaderboard() {
 
         <div className="scoreboard" style={{ marginTop: 16 }}>
           {entries.map(({ uid, name, totalScore, gamesPlayed }, i) => (
-            <div
+            <ScoreRow
               key={uid}
-              className={[
-                'score-row',
-                i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '',
-              ].filter(Boolean).join(' ')}
-              style={{ animationDelay: `${i * 50}ms` }}
-            >
-              <span className="score-rank">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>
-              <span className="score-name">{name || 'Anonymous'}</span>
-              <span className="gl-games">{gamesPlayed} game{gamesPlayed !== 1 ? 's' : ''}</span>
-              <span className="score-pts">{totalScore?.toLocaleString() || 0}</span>
-            </div>
+              index={i}
+              name={name}
+              points={totalScore}
+              meta={`${gamesPlayed || 0} game${gamesPlayed !== 1 ? 's' : ''}`}
+              delayMs={50}
+            />
           ))}
         </div>
       </div>

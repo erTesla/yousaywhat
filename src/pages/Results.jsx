@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
+import Splash from '../components/Splash';
+import ScoreRow from '../components/ScoreRow';
+import { pollBars, wordFrequency } from '../utils/poll';
+import { MEDALS, CHOICE_LABELS } from '../utils/display';
 import { useAuth } from '../hooks/useAuth';
 
-const MEDALS = ['🥇', '🥈', '🥉'];
-const CHOICE_LABELS = ['A', 'B', 'C', 'D'];
-const COLORS = ['var(--red)', 'var(--blue)', 'var(--yellow)', 'var(--green)'];
+// Bar fills for the per-question breakdown. Distinct from WordCloud's hex
+// palette, which serves a different purpose despite the similar name.
+const BAR_COLORS = ['var(--red)', 'var(--blue)', 'var(--yellow)', 'var(--green)'];
 
 export default function Results() {
   const [params]   = useSearchParams();
@@ -91,20 +95,15 @@ export default function Results() {
         <h3>Final Standings</h3>
         <div className="scoreboard">
           {playerList.map(([uid, p], i) => (
-            <div
+            <ScoreRow
               key={uid}
-              className={[
-                'score-row',
-                uid === user.uid ? 'highlight' : '',
-                i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '',
-              ].filter(Boolean).join(' ')}
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
-              <span className="score-rank">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>
-              <span className="score-name">{p.name}</span>
-              {p.teamCode && <span className="res-team-tag">{p.teamCode}</span>}
-              <span className="score-pts">{(p.score || 0).toLocaleString()}</span>
-            </div>
+              index={i}
+              name={p.name}
+              points={p.score}
+              meta={p.teamCode || null}
+              highlight={uid === user.uid}
+              delayMs={60}
+            />
           ))}
         </div>
       </section>
@@ -127,12 +126,7 @@ export default function Results() {
 
             // Word cloud / poll: show the actual responses for THIS question
             if ((s.type || q.type) === 'wordcloud') {
-              const freq = {};
-              (s.words || []).forEach(w => {
-                const k = String(w).trim().toLowerCase();
-                if (k) freq[k] = (freq[k] || 0) + 1;
-              });
-              const ranked = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+              const ranked = wordFrequency(s.words, { limit: 200 });
               return (
                 <div key={idx} className="qb-card">
                   <div className="qb-header">
@@ -145,9 +139,9 @@ export default function Results() {
                     <p className="muted" style={{ fontSize: '0.85rem' }}>No responses.</p>
                   ) : (
                     <div className="qb-words">
-                      {ranked.map(([word, n]) => (
+                      {ranked.map(({ word, count }) => (
                         <span key={word} className="qb-word">
-                          {word}{n > 1 && <span className="qb-word-n">×{n}</span>}
+                          {word}{count > 1 && <span className="qb-word-n">×{count}</span>}
                         </span>
                       ))}
                     </div>
@@ -156,35 +150,33 @@ export default function Results() {
               );
             }
 
-            const total = Object.values(s.choiceCounts || {}).reduce((a, b) => a + b, 0) || 1;
             return (
               <div key={idx} className="qb-card">
                 <div className="qb-header">
                   <span className="qb-num">Q{idx + 1}</span>
                   <span className="qb-text">{q.text}</span>
                 </div>
-                <p className="qb-meta">{s.responseCount ?? total} response{(s.responseCount ?? total) !== 1 ? 's' : ''}</p>
+                <p className="qb-meta">{s.responseCount || 0} response{s.responseCount !== 1 ? 's' : ''}</p>
                 <div className="qb-bars">
-                  {q.choices.map((c, ci) => {
-                    const count = s.choiceCounts?.[ci] || 0;
-                    const pct   = Math.round((count / total) * 100);
-                    const correct = ci === s.correct;
-                    return (
-                      <div key={ci} className="qb-bar-row">
-                        <span className={`qb-label${correct ? ' qb-correct' : ''}`}>
-                          {CHOICE_LABELS[ci]}{correct ? ' ✓' : ''}
-                        </span>
-                        <div className="qb-bar-track">
-                          <div
-                            className="qb-bar-fill"
-                            style={{ width: `${pct}%`, background: correct ? 'var(--green)' : COLORS[ci] }}
-                          />
+                  {pollBars(q.choices, CHOICE_LABELS.map((_, ci) => s.choiceCounts?.[ci] || 0))
+                    .map(({ count, pct }, ci) => {
+                      const correct = ci === s.correct;
+                      return (
+                        <div key={ci} className="qb-bar-row">
+                          <span className={`qb-label${correct ? ' qb-correct' : ''}`}>
+                            {CHOICE_LABELS[ci]}{correct ? ' ✓' : ''}
+                          </span>
+                          <div className="qb-bar-track">
+                            <div
+                              className="qb-bar-fill"
+                              style={{ width: `${pct}%`, background: correct ? 'var(--green)' : BAR_COLORS[ci] }}
+                            />
+                          </div>
+                          <span className="qb-pct">{pct}%</span>
+                          <span className="qb-count">({count})</span>
                         </div>
-                        <span className="qb-pct">{pct}%</span>
-                        <span className="qb-count">({count})</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
             );
@@ -198,8 +190,4 @@ export default function Results() {
       </p>
     </div>
   );
-}
-
-function Splash({ children }) {
-  return <div className="page page-centered"><p className="muted">{children}</p></div>;
 }

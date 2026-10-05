@@ -5,8 +5,9 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generatePin, generateSecret } from '../utils/game';
 import { isActivityType } from '../utils/session';
-
-const MEDALS = ['🥇', '🥈', '🥉'];
+import { pollBars } from '../utils/poll';
+import Splash from '../components/Splash';
+import ScoreRow from '../components/ScoreRow';
 
 export default function SessionHost() {
   const [params]  = useSearchParams();
@@ -248,9 +249,12 @@ export default function SessionHost() {
           <div className="cloud-grid">
             {activityList.map(({ pin, type, prompt, words, options, responseCount, live, savedAt }) => {
               const isPoll = type === 'poll';
-              const max = isPoll
-                ? Math.max(1, ...(options || []).map(o => o.count))
-                : Math.max(1, ...(words || []).map(w => w.count));
+              // Word size scales to the most frequent word; poll bars are a
+              // share of the total, so they read as the proportions they are.
+              const max  = Math.max(1, ...(words || []).map(w => w.count));
+              const bars = isPoll
+                ? pollBars((options || []).map(o => o.label), (options || []).map(o => o.count))
+                : [];
               return (
                 <div key={pin} className={`cloud-mini${live ? ' cloud-live' : ''}`}>
                   <div className="cloud-mini-head">
@@ -264,16 +268,16 @@ export default function SessionHost() {
 
                   {isPoll ? (
                     <div className="poll-mini">
-                      {(options || []).map(({ label, count }) => (
-                        <div key={label} className="poll-mini-row">
+                      {bars.map(({ label, count, pct, isLead }) => (
+                        <div key={label} className={`poll-mini-row${isLead ? ' poll-mini-lead' : ''}`}>
                           <span className="poll-mini-label">{label}</span>
                           <div className="poll-mini-track">
-                            <div className="poll-mini-fill" style={{ width: `${Math.round((count / max) * 100)}%` }} />
+                            <div className="poll-mini-fill" style={{ width: `${pct}%` }} />
                           </div>
                           <span className="poll-mini-n">{count}</span>
                         </div>
                       ))}
-                      {(options || []).length === 0 && <span className="muted">No votes</span>}
+                      {bars.length === 0 && <span className="muted">No votes</span>}
                     </div>
                   ) : (
                     <div className="cloud-mini-words">
@@ -309,18 +313,16 @@ export default function SessionHost() {
           ) : (
             <div className="mini-lb-list">
               {leaderboard.map(({ uid, name, totalScore, gamesPlayed, activitiesJoined }, i) => (
-                <div key={uid} className={['score-row', i < 3 ? `rank-${i + 1}` : ''].filter(Boolean).join(' ')}
-                  style={{ animationDelay: `${i * 40}ms` }}>
-                  <span className="score-rank">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>
-                  <span className="score-name">
-                    {name}
-                    {activitiesJoined > 0 && (
-                      <span className="lb-activities"> · {activitiesJoined} activit{activitiesJoined === 1 ? 'y' : 'ies'}</span>
-                    )}
-                  </span>
-                  <span className="gl-games">{gamesPlayed || 0}g</span>
-                  <span className="score-pts">{(totalScore || 0).toLocaleString()}</span>
-                </div>
+                <ScoreRow
+                  key={uid}
+                  index={i}
+                  name={name}
+                  points={totalScore}
+                  meta={[
+                    `${gamesPlayed || 0}g`,
+                    activitiesJoined > 0 ? `${activitiesJoined} activit${activitiesJoined === 1 ? 'y' : 'ies'}` : null,
+                  ].filter(Boolean).join(' · ')}
+                />
               ))}
             </div>
           )}
@@ -412,8 +414,4 @@ export default function SessionHost() {
       </div>
     </div>
   );
-}
-
-function Splash({ children }) {
-  return <div className="page page-centered"><p className="muted">{children}</p></div>;
 }

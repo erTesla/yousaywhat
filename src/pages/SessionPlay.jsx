@@ -4,8 +4,8 @@ import { ref, get, set, onValue } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { leaveSession, followedKey } from '../utils/session';
-
-const MEDALS = ['🥇', '🥈', '🥉'];
+import Splash from '../components/Splash';
+import ScoreRow from '../components/ScoreRow';
 
 export default function SessionPlay() {
   const [params] = useSearchParams();
@@ -145,23 +145,17 @@ export default function SessionPlay() {
         <h3>Session Leaderboard</h3>
         <div className="mini-lb-list">
           {leaderboard.map(({ uid, name, totalScore }, i) => (
-            <div
+            <ScoreRow
               key={uid}
-              className={['score-row', uid === user?.uid ? 'highlight' : '', i < 3 ? `rank-${i + 1}` : ''].filter(Boolean).join(' ')}
-              style={{ animationDelay: `${i * 40}ms` }}
-            >
-              <span className="score-rank">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>
-              <span className="score-name">{name}</span>
-              <span className="score-pts">{(totalScore || 0).toLocaleString()}</span>
-            </div>
+              index={i}
+              name={name}
+              points={totalScore}
+              highlight={uid === user?.uid}
+            />
           ))}
           {leaderboard.length === 0 && <p className="muted">No scores yet</p>}
         </div>
       </div>
     </div>
   );
-}
-
-function Splash({ children }) {
-  return <div className="page page-centered"><p className="muted">{children}</p></div>;
 }

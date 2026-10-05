@@ -11,9 +11,10 @@ import Reactions from '../components/Reactions';
 import TeamLobby from '../components/TeamLobby';
 import TeamLeaderboard from '../components/TeamLeaderboard';
 import WordCloud from '../components/WordCloud';
+import Splash from '../components/Splash';
+import { tallyChoices, pollBars } from '../utils/poll';
+import { CHOICE_COLORS, CHOICE_SHAPES } from '../utils/display';
 
-const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
-const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
 // Seconds a player lingers on the result before returning to the session lobby
 const RETURN_SECONDS = 6;
 
@@ -144,8 +145,9 @@ export default function Play() {
     }
   }, [players, user]);
 
-  // Answers are readable at reveal (word cloud results) and throughout a live
-  // poll question, where watching votes land is the whole point.
+  // Answers become readable at reveal, and throughout a live poll or word
+  // cloud question - neither has a correct answer to leak, and watching the
+  // votes or words land is the whole point of them.
   const liveOpen = status === 'question' &&
     (currentQuestion?.type === 'poll' || currentQuestion?.type === 'wordcloud');
   useEffect(() => {
@@ -297,20 +299,15 @@ export default function Play() {
               <div className="poll-voted">
                 <p className="muted">✓ Your vote is in — waiting for everyone else…</p>
                 <div className="poll-results">
-                  {currentQuestion.choices.filter(Boolean).map((c, i) => {
-                    const count = Object.values(revealAnswers).filter(a => a.choice === i).length;
-                    const total = Object.keys(revealAnswers).length || 1;
-                    const pct   = Math.round((count / total) * 100);
-                    return (
-                      <div key={i} className="poll-res-row">
-                        <span className="po-text">{c}{i === myAnswer && <span className="po-mine"> your vote</span>}</span>
-                        <div className="poll-bar-track">
-                          <div className="poll-bar-fill" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="poll-pct">{pct}%</span>
+                  {pollBars(currentQuestion.choices, tallyChoices(revealAnswers)).map(({ label, pct }, i) => (
+                    <div key={label} className="poll-res-row">
+                      <span className="po-text">{label}{i === myAnswer && <span className="po-mine"> your vote</span>}</span>
+                      <div className="poll-bar-track">
+                        <div className="poll-bar-fill" style={{ width: `${pct}%` }} />
                       </div>
-                    );
-                  })}
+                      <span className="poll-pct">{pct}%</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -369,23 +366,15 @@ export default function Play() {
           <WordCloud answers={revealAnswers} />
         ) : isPollQ ? (
           <div className="poll-results poll-results-final">
-            {currentQuestion.choices.filter(Boolean).map((c, i) => {
-              const count = Object.values(revealAnswers).filter(a => a.choice === i).length;
-              const total = Object.keys(revealAnswers).length || 1;
-              const pct   = Math.round((count / total) * 100);
-              const top   = count > 0 && count === Math.max(
-                ...currentQuestion.choices.filter(Boolean).map((_, j) =>
-                  Object.values(revealAnswers).filter(a => a.choice === j).length));
-              return (
-                <div key={i} className={`poll-res-row${top ? ' poll-res-top' : ''}`}>
-                  <span className="po-text">{c}{i === myAnswer && <span className="po-mine"> your vote</span>}</span>
-                  <div className="poll-bar-track">
-                    <div className="poll-bar-fill" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="poll-pct">{pct}% ({count})</span>
+            {pollBars(currentQuestion.choices, tallyChoices(revealAnswers)).map(({ label, count, pct, isLead }, i) => (
+              <div key={label} className={`poll-res-row${isLead ? ' poll-res-top' : ''}`}>
+                <span className="po-text">{label}{i === myAnswer && <span className="po-mine"> your vote</span>}</span>
+                <div className="poll-bar-track">
+                  <div className="poll-bar-fill" style={{ width: `${pct}%` }} />
                 </div>
-              );
-            })}
+                <span className="poll-pct">{pct}% ({count})</span>
+              </div>
+            ))}
           </div>
         ) : (
         <div className="reveal-choices">
@@ -482,10 +471,6 @@ export default function Play() {
   }
 
   return <Splash>Loading…</Splash>;
-}
-
-function Splash({ children }) {
-  return <div className="page page-centered"><p className="muted">{children}</p></div>;
 }
 
 function WordCloudInput({ question, pin, user, onSubmit }) {

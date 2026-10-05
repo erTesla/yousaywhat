@@ -4,8 +4,7 @@ import { ref, get, query, orderByChild, limitToLast, onValue } from 'firebase/da
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { isSessionCode } from '../utils/session';
-
-const MEDALS = ['🥇', '🥈', '🥉'];
+import ScoreRow from '../components/ScoreRow';
 
 export default function Home() {
   const [input,   setInput]   = useState('');
@@ -137,19 +136,7 @@ function MiniLeaderboard() {
 
       <div className="mini-lb-list">
         {entries.slice(0, 10).map(({ uid, name, totalScore, gamesPlayed }, i) => (
-          <div
-            key={uid}
-            className={[
-              'score-row',
-              i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '',
-            ].filter(Boolean).join(' ')}
-            style={{ animationDelay: `${i * 40}ms` }}
-          >
-            <span className="score-rank">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>
-            <span className="score-name">{name || 'Anonymous'}</span>
-            <span className="gl-games">{gamesPlayed}g</span>
-            <span className="score-pts">{totalScore?.toLocaleString() || 0}</span>
-          </div>
+          <ScoreRow key={uid} index={i} name={name} points={totalScore} meta={`${gamesPlayed || 0}g`} />
         ))}
       </div>
     </div>

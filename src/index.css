@@ -2359,3 +2359,7 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 .end-no:hover { color: #fff; }
 
 .return-note { font-size: 0.78rem; }
+
+/* Secondary text inside a leaderboard row (games played, team, activities) */
+.score-meta { font-size: 0.7rem; color: var(--muted); font-weight: 400; }
+.poll-mini-lead .poll-mini-label { color: var(--yellow); font-weight: 700; }
