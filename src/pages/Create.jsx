@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ref, set } from 'firebase/database';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ref, set, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generatePin, generateSecret } from '../utils/game';
@@ -33,9 +33,12 @@ const GAME_TYPES = [
 ];
 
 export default function Create() {
-  const navigate  = useNavigate();
-  const user      = useAuth();
-  const [busy, setBusy] = useState(false);
+  const navigate          = useNavigate();
+  const [params]          = useSearchParams();
+  const user              = useAuth();
+  const sessionCode       = params.get('sessionCode');
+  const sessionSecret     = params.get('sessionSecret');
+  const [busy, setBusy]   = useState(false);
   const [error, setError] = useState('');
 
   async function pick(type) {
@@ -47,7 +50,7 @@ export default function Create() {
     const secret = generateSecret();
 
     try {
-      await set(ref(db, `games/${pin}`), {
+      const gameData = {
         hostUid:         user.uid,
         hostSecret:      secret,
         status:          'lobby',
@@ -56,9 +59,23 @@ export default function Create() {
         chatEnabled:     true,
         gameType:        type,
         questions:       [],
-      });
-      // Go straight to setup with pin + secret + type pre-set
-      navigate(`/create/setup?pin=${pin}&secret=${secret}&type=${type}`);
+      };
+      if (sessionCode) gameData.sessionCode = sessionCode;
+
+      await set(ref(db, `games/${pin}`), gameData);
+
+      // If part of a session, mark it as in-progress
+      if (sessionCode) {
+        await update(ref(db, `sessions/${sessionCode}`), {
+          currentGamePin: pin,
+          status:         'playing',
+        });
+      }
+
+      const sessionParams = sessionCode
+        ? `&sessionCode=${sessionCode}&sessionSecret=${sessionSecret}`
+        : '';
+      navigate(`/create/setup?pin=${pin}&secret=${secret}&type=${type}${sessionParams}`);
     } catch (e) {
       setError('Could not create session — check your connection');
       setBusy(false);
@@ -70,9 +87,12 @@ export default function Create() {
   return (
     <div className="page page-centered">
       <div className="create-picker">
-        <button className="btn-back" onClick={() => navigate('/')}>← Back</button>
-        <h2>What kind of session?</h2>
-        <p className="muted">Pick a format — your session PIN is generated instantly.</p>
+        <button className="btn-back" onClick={() => sessionCode ? navigate(`/session/host?code=${sessionCode}&secret=${sessionSecret}`) : navigate('/')}>← Back</button>
+        {sessionCode && (
+          <div className="setup-pin-tag" style={{ marginBottom: 8 }}>Session: <strong>{sessionCode}</strong></div>
+        )}
+        <h2>What kind of game?</h2>
+        <p className="muted">Pick a format — your game PIN is generated instantly.</p>
 
         <div className="game-type-grid">
           {GAME_TYPES.map(({ key, icon, label, desc }) => (

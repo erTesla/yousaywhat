@@ -2,22 +2,40 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, get, query, orderByChild, limitToLast, onValue } from 'firebase/database';
 import { db } from '../firebase';
+import { isSessionCode } from '../utils/session';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function Home() {
-  const [pin, setPin]       = useState('');
-  const [error, setError]   = useState('');
+  const [input,   setInput]   = useState('');
+  const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   async function handleJoin(e) {
     e.preventDefault();
-    const trimmed = pin.trim();
-    if (!/^\d{6}$/.test(trimmed)) { setError('PIN must be 6 digits'); return; }
+    const trimmed = input.trim().toUpperCase();
+    setError('');
+
+    if (isSessionCode(trimmed)) {
+      // Session code (e.g. WOLF-4821) → join session
+      setLoading(true);
+      try {
+        const snap = await get(ref(db, `sessions/${trimmed}/status`));
+        if (!snap.exists()) setError('Session not found');
+        else                navigate(`/session/join?code=${trimmed}`);
+      } catch {
+        setError('Connection error — check your internet');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Game PIN (6 digits)
+    if (!/^\d{6}$/.test(trimmed)) { setError('Enter a 6-digit PIN or a session code (e.g. WOLF-4821)'); return; }
 
     setLoading(true);
-    setError('');
     try {
       const snap = await get(ref(db, `games/${trimmed}/status`));
       if (!snap.exists())              setError('Game not found');
@@ -43,22 +61,24 @@ export default function Home() {
           <input
             className="pin-input"
             type="text"
-            inputMode="numeric"
-            maxLength={6}
-            placeholder="Game PIN"
-            value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+            maxLength={12}
+            placeholder="Game PIN or WOLF-4821"
+            value={input}
+            onChange={e => setInput(e.target.value.replace(/[^A-Za-z0-9-]/g, ''))}
             autoFocus
           />
           {error && <p className="error-msg">{error}</p>}
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? 'Checking…' : 'Join Game'}
+            {loading ? 'Checking…' : 'Join'}
           </button>
         </form>
 
         <div className="home-divider">or</div>
         <button className="btn btn-ghost home-create-btn" onClick={() => navigate('/create')}>
           + Create a Game
+        </button>
+        <button className="btn btn-ghost home-create-btn" style={{ marginTop: 8 }} onClick={() => navigate('/session/create')}>
+          🔁 Start a Session
         </button>
 
         <div className="home-divider">or</div>

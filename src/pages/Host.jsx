@@ -16,8 +16,10 @@ import WordCloud from '../components/WordCloud';
 
 export default function Host() {
   const [params]  = useSearchParams();
-  const pin       = params.get('pin');
-  const secret    = params.get('secret');
+  const pin           = params.get('pin');
+  const secret        = params.get('secret');
+  const sessionCode   = params.get('sessionCode');
+  const sessionSecret = params.get('sessionSecret');
   const navigate  = useNavigate();
   const user      = useAuth();
 
@@ -165,13 +167,42 @@ export default function Host() {
         playerHistory[uid] = { name: p.name, score: p.score || 0, teamCode: p.teamCode || null };
       });
 
+      const endedAt = Date.now();
       await update(ref(db, `games/${pin}`), {
         status: 'ended',
         'results/players': playerHistory,
         'results/summary': summary,
-        'results/endedAt': Date.now(),
+        'results/endedAt': endedAt,
         'results/questionCount': qs.length,
       });
+
+      // Update session state and cumulative scores
+      if (sessionCode) {
+        const topPlayer = Object.entries(playerHistory).sort((a, b) => (b[1].score || 0) - (a[1].score || 0))[0];
+        const sessionUpdates = {
+          currentGamePin: null,
+          status: 'between',
+          [`games/${pin}/endedAt`]:       endedAt,
+          [`games/${pin}/questionCount`]: qs.length,
+          [`games/${pin}/playerCount`]:   Object.keys(playerHistory).length,
+          [`games/${pin}/winnerName`]:    topPlayer?.[1]?.name  || '',
+          [`games/${pin}/winnerScore`]:   topPlayer?.[1]?.score || 0,
+        };
+        // Increment cumulative scores for each player
+        for (const [uid, p] of Object.entries(playerHistory)) {
+          sessionUpdates[`players/${uid}/name`] = p.name;
+        }
+        await update(ref(db, `sessions/${sessionCode}`), sessionUpdates);
+        // Update totalScore individually (need to read first to add)
+        for (const [uid, p] of Object.entries(playerHistory)) {
+          const snap = await get(ref(db, `sessions/${sessionCode}/players/${uid}`));
+          const prev = snap.val() || {};
+          await update(ref(db, `sessions/${sessionCode}/players/${uid}`), {
+            totalScore:  (prev.totalScore  || 0) + (p.score || 0),
+            gamesPlayed: (prev.gamesPlayed || 0) + 1,
+          });
+        }
+      }
     } finally {
       setBusy(false);
     }
@@ -357,7 +388,16 @@ export default function Host() {
           <p className="muted" style={{ fontSize: '0.8rem' }}>
             Players can view at: <strong>/results?pin={pin}</strong>
           </p>
-          <button className="btn btn-ghost" onClick={() => navigate('/')}>Back to Home</button>
+          {sessionCode ? (
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(`/session/host?code=${sessionCode}&secret=${sessionSecret}`)}
+            >
+              🔁 Back to Session Dashboard
+            </button>
+          ) : (
+            <button className="btn btn-ghost" onClick={() => navigate('/')}>Back to Home</button>
+          )}
         </div>
       )}
       <Reactions pin={pin} user={user} hostView />

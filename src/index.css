@@ -1488,3 +1488,189 @@ select.time-select {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ── Session pages ───────────────────────────────────────────────────────── */
+
+.session-code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(233,69,96,0.15);
+  border: 1px solid rgba(233,69,96,0.4);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 1.1rem;
+  letter-spacing: 0.05em;
+}
+
+/* Session Host dashboard */
+.session-host-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.session-host-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.session-host-title h1 {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+}
+
+.session-host-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.session-active-banner {
+  background: rgba(46,196,182,0.15);
+  border: 1px solid rgba(46,196,182,0.4);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  color: var(--green);
+}
+
+.session-host-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 600px) {
+  .session-host-body { grid-template-columns: 1fr; }
+}
+
+.session-lb-card,
+.session-games-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.session-lb-card h3,
+.session-games-card h3 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+}
+
+.session-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-game-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sgr-date { color: var(--muted); font-size: 0.75rem; margin-right: 8px; }
+.sgr-pin  { font-weight: 600; }
+.sgr-right { color: var(--muted); font-size: 0.8rem; }
+
+.session-host-footer {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Session Play (player waiting room) */
+.session-play-page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 32px 16px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.session-play-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-play-header h2 { margin: 0; font-size: 1.4rem; }
+
+.session-waiting {
+  text-align: center;
+  padding: 32px 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.session-waiting-icon { font-size: 2.5rem; margin-bottom: 12px; }
+.session-waiting h3   { margin: 0 0 8px; }
+
+.session-my-score {
+  background: rgba(233,69,96,0.12);
+  border: 1px solid rgba(233,69,96,0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.session-lb-mini {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+
+.session-lb-mini h3 { margin: 0 0 12px; font-size: 0.95rem; }
+
+/* Loading dots animation */
+.loading-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.loading-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: dot-bounce 1.2s infinite ease-in-out;
+}
+
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40%           { transform: scale(1.2); opacity: 1; }
+}
+
+.status-idle    { background: rgba(148,163,184,0.2); color: var(--muted); }
+.status-playing { background: rgba(46,196,182,0.2);  color: var(--green); }
+.status-between { background: rgba(248,180,0,0.2);   color: var(--yellow); }

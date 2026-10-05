@@ -80,6 +80,8 @@ export default function HostSetup() {
   const existingPin    = params.get('pin');
   const existingSecret = params.get('secret');
   const gameType       = params.get('type') || 'quiz';
+  const sessionCode    = params.get('sessionCode');
+  const sessionSecret  = params.get('sessionSecret');
 
   const defaultQ = gameType === 'wordcloud' ? BLANK_WC() : BLANK_Q();
 
@@ -178,7 +180,10 @@ export default function HostSetup() {
       if (existingPin && existingSecret) {
         // Session already created by picker — just write questions
         await update(ref(db, `games/${existingPin}`), { questions: qs });
-        navigate(`/host?pin=${existingPin}&secret=${existingSecret}`);
+        const sessionParams = sessionCode
+          ? `&sessionCode=${sessionCode}&sessionSecret=${sessionSecret}`
+          : '';
+        navigate(`/host?pin=${existingPin}&secret=${existingSecret}${sessionParams}`);
       } else {
         // Legacy flow (direct /create route)
         const pin    = generatePin();

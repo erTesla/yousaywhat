@@ -15,10 +15,11 @@ const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
 const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
 
 export default function Play() {
-  const [params] = useSearchParams();
-  const pin      = params.get('pin');
-  const navigate = useNavigate();
-  const user     = useAuth();
+  const [params]    = useSearchParams();
+  const pin         = params.get('pin');
+  const sessionCode = params.get('sessionCode');
+  const navigate    = useNavigate();
+  const user        = useAuth();
 
   const [status,          setStatus]          = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -280,9 +281,15 @@ export default function Play() {
         <a className="btn btn-ghost" href={`/results?pin=${pin}`} target="_blank" rel="noreferrer">
           📊 View My Results
         </a>
-        <button className="btn btn-primary" onClick={() => navigate('/')}>
-          Play Again
-        </button>
+        {sessionCode ? (
+          <button className="btn btn-primary" onClick={() => navigate(`/session/play?code=${sessionCode}`)}>
+            🔁 Back to Session
+          </button>
+        ) : (
+          <button className="btn btn-primary" onClick={() => navigate('/')}>
+            Play Again
+          </button>
+        )}
         {chatWidget}
       </div>
     );

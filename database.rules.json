@@ -1,5 +1,21 @@
 {
   "rules": {
+    "sessions": {
+      "$code": {
+        ".read": true,
+        ".write": "auth != null && (!data.exists() || auth.uid === data.child('hostUid').val())",
+        "hostSecret": {
+          ".read": "auth != null && auth.uid === data.parent().child('hostUid').val()"
+        },
+        "players": {
+          ".read": true,
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        }
+      }
+    },
+
     "globalLeaderboard": {
       ".read": true,
       "$uid": {

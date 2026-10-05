@@ -11,6 +11,10 @@ import FeedbackHub    from './pages/FeedbackEntry';
 import FeedbackCreate from './pages/FeedbackCreate';
 import FeedbackSubmit from './pages/FeedbackSubmit';
 import FeedbackView   from './pages/FeedbackView';
+import SessionCreate  from './pages/SessionCreate';
+import SessionHost    from './pages/SessionHost';
+import SessionJoin    from './pages/SessionJoin';
+import SessionPlay    from './pages/SessionPlay';
 
 export default function App() {
   return (
@@ -28,6 +32,10 @@ export default function App() {
         <Route path="/feedback-create" element={<FeedbackCreate />}/>
         <Route path="/feedback-submit" element={<FeedbackSubmit />}/>
         <Route path="/feedback-view"   element={<FeedbackView />}  />
+        <Route path="/session/create"  element={<SessionCreate />} />
+        <Route path="/session/host"    element={<SessionHost />}   />
+        <Route path="/session/join"    element={<SessionJoin />}   />
+        <Route path="/session/play"    element={<SessionPlay />}   />
       </Routes>
     </BrowserRouter>
   );
