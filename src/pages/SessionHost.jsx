@@ -159,6 +159,10 @@ export default function SessionHost() {
     .map(([id, d]) => ({ id, ...d }))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
+  const cloudList = Object.entries(session.clouds || {})
+    .map(([pin, c]) => ({ pin, ...c }))
+    .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+
   const pastGames = Object.entries(games)
     .map(([pin, g]) => ({ pin, ...g }))
     .sort((a, b) => (b.endedAt || 0) - (a.endedAt || 0));
@@ -234,6 +238,41 @@ export default function SessionHost() {
               <span className="team-chip-count">{Object.keys(t.members || {}).length}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {cloudList.length > 0 && (
+        <div className="session-clouds-card">
+          <h3>Word Clouds ({cloudList.length})</h3>
+          <p className="card-hint">Saved clouds from this session. Live ones keep updating as people type.</p>
+          <div className="cloud-grid">
+            {cloudList.map(({ pin, prompt, words, responseCount, live, savedAt }) => {
+              const max = Math.max(1, ...(words || []).map(w => w.count));
+              return (
+                <div key={pin} className={`cloud-mini${live ? ' cloud-live' : ''}`}>
+                  <div className="cloud-mini-head">
+                    <span className="cloud-mini-prompt">{prompt || 'Untitled'}</span>
+                    {live
+                      ? <span className="cloud-live-dot">● live</span>
+                      : <span className="muted cloud-mini-date">{savedAt ? new Date(savedAt).toLocaleDateString() : ''}</span>}
+                  </div>
+                  <div className="cloud-mini-words">
+                    {(words || []).slice(0, 18).map(({ word, count }) => (
+                      <span
+                        key={word}
+                        className="cloud-mini-word"
+                        style={{ fontSize: `${0.7 + (count / max) * 0.85}rem`, opacity: 0.55 + (count / max) * 0.45 }}
+                      >
+                        {word}
+                      </span>
+                    ))}
+                    {(words || []).length === 0 && <span className="muted">No responses</span>}
+                  </div>
+                  <span className="muted cloud-mini-count">{responseCount || 0} response{responseCount !== 1 ? 's' : ''}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -96,6 +96,8 @@ export default function HostSetup() {
     : BLANK_Q();
 
   const [questions, setQuestions] = useState([defaultQ]);
+  // A word cloud is a single prompt, not a numbered series of questions.
+  const singlePrompt = gameType === 'wordcloud';
   // Only relevant for one-off games; inside a session the host toggles team
   // mode on the session dashboard so it persists across games.
   const [teamMode,  setTeamMode]  = useState(false);
@@ -276,7 +278,7 @@ export default function HostSetup() {
 
       <div className="setup-header">
         <button className="btn-back" onClick={() => navigate('/')}>← Back</button>
-        <h1>Build Your Session</h1>
+        <h1>{singlePrompt ? 'Set Your Word Cloud' : 'Build Your Session'}</h1>
         {existingPin && (
           <div className="setup-pin-tag">PIN: <strong>{existingPin}</strong></div>
         )}
@@ -299,7 +301,8 @@ export default function HostSetup() {
         {questions.map((q, qi) => (
           <div key={qi} className="card question-editor">
             <div className="q-editor-header">
-              <span className="q-num">Q{qi + 1}</span>
+              {!singlePrompt && <span className="q-num">Q{qi + 1}</span>}
+              {!singlePrompt && (
               <select
                 value={q.type || 'mcq'}
                 onChange={e => {
@@ -317,6 +320,7 @@ export default function HostSetup() {
                 <option value="poll">Poll / vote</option>
                 <option value="wordcloud">Word cloud</option>
               </select>
+              )}
               <select
                 value={q.timeLimit}
                 onChange={e => updateQ(qi, 'timeLimit', Number(e.target.value))}
@@ -338,7 +342,7 @@ export default function HostSetup() {
             <input
               className="text-input question-text-input"
               type="text"
-              placeholder="Question text…"
+              placeholder={singlePrompt ? 'Your prompt — e.g. "One word for how you feel today"' : 'Question text…'}
               value={q.text}
               onChange={e => updateQ(qi, 'text', e.target.value)}
             />
@@ -400,15 +404,19 @@ export default function HostSetup() {
       )}
 
       <div className="setup-footer">
-        <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_Q()])}>
-          + Add Question
-        </button>
-        <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_POLL()])}>
-          📊 Add Poll
-        </button>
-        <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_WC()])}>
-          ☁️ Add Word Cloud
-        </button>
+        {!singlePrompt && (
+          <>
+            <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_Q()])}>
+              + Add Question
+            </button>
+            <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_POLL()])}>
+              📊 Add Poll
+            </button>
+            <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_WC()])}>
+              ☁️ Add Word Cloud
+            </button>
+          </>
+        )}
         {error && <p className="error-msg">{error}</p>}
 
         {sessionCode && (
@@ -428,7 +436,7 @@ export default function HostSetup() {
         )}
 
         <button className="btn btn-primary btn-large" onClick={handleLaunch} disabled={launching || saving}>
-          {launching ? 'Launching…' : 'Launch Game Now →'}
+          {launching ? 'Launching…' : singlePrompt ? 'Open Word Cloud →' : 'Launch Game Now →'}
         </button>
       </div>
     </div>

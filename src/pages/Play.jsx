@@ -141,9 +141,10 @@ export default function Play() {
 
   // Answers are readable at reveal (word cloud results) and throughout a live
   // poll question, where watching votes land is the whole point.
-  const livePoll = status === 'question' && currentQuestion?.type === 'poll';
+  const liveOpen = status === 'question' &&
+    (currentQuestion?.type === 'poll' || currentQuestion?.type === 'wordcloud');
   useEffect(() => {
-    if (!pin || (status !== 'reveal' && !livePoll)) return;
+    if (!pin || (status !== 'reveal' && !liveOpen)) return;
     // onValue fires immediately with current data, and the host clears answers
     // on each new question, so there's no stale-flash to guard against here.
     const unsub = onValue(
@@ -152,7 +153,7 @@ export default function Play() {
       () => {},
     );
     return unsub;
-  }, [status, pin, livePoll]);
+  }, [status, pin, liveOpen]);
 
   if (!user || !pin) return <Splash>Connecting…</Splash>;
 
@@ -215,10 +216,11 @@ export default function Play() {
           myAnswer === null ? (
             <WordCloudInput question={currentQuestion} pin={pin} user={user} onSubmit={txt => setMyAnswer(txt)} />
           ) : (
-            <div className="answered-splash">
+            <div className="wc-player-live">
               <div className="answered-check">✓</div>
               <h2>"{myAnswer}"</h2>
-              <p className="muted">Waiting for everyone else…</p>
+              <p className="muted">Here's the cloud so far…</p>
+              <WordCloud answers={revealAnswers} />
             </div>
           )
         ) : isPoll ? (
@@ -361,6 +363,25 @@ export default function Play() {
         <h2>Leaderboard</h2>
         <div className="my-rank-banner">You're #{myRank}</div>
         <TeamLeaderboard players={playerList} teams={teams} highlightUid={user.uid} showDelta />
+        {chatWidget}
+      </div>
+    );
+  }
+
+  // ── ENDED: word cloud / activity has no ranking to show ──────────────────────
+  if (status === 'ended' && gameKind === 'activity') {
+    return (
+      <div className="page play-ended">
+        <h2>☁️ That's a wrap</h2>
+        <p className="muted">Thanks for taking part — no points, just your words.</p>
+        {Object.keys(revealAnswers).length > 0 && <WordCloud answers={revealAnswers} />}
+        {sessionCode ? (
+          <button className="btn btn-primary" onClick={() => navigate(`/session/play?code=${sessionCode}`)}>
+            🔁 Back to Session
+          </button>
+        ) : (
+          <button className="btn btn-primary" onClick={() => navigate('/')}>Back to Home</button>
+        )}
         {chatWidget}
       </div>
     );
