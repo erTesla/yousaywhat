@@ -7,12 +7,35 @@ const MAX_REACTIONS = 3;
 const COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes
 const FLOAT_DURATION = 2200;
 
+// Cooldown is keyed by user, not by game, so moving between games in a session
+// can't be used to reset the limit.
+function loadCooldown(uid) {
+  try {
+    const raw = localStorage.getItem(`ysw_react_${uid}`);
+    if (!raw) return { cooldownUntil: 0, reactionCount: 0 };
+    const v = JSON.parse(raw);
+    return { cooldownUntil: v.cooldownUntil || 0, reactionCount: v.reactionCount || 0 };
+  } catch {
+    return { cooldownUntil: 0, reactionCount: 0 };
+  }
+}
+
 export default function Reactions({ pin, user }) {
   const [floaters, setFloaters]     = useState([]);
   const [cooldownUntil, setCooldownUntil] = useState(0);
   const [reactionCount, setReactionCount] = useState(0);
   const [now, setNow]               = useState(Date.now());
   const nextId = useRef(0);
+  const seenAt = useRef({});   // uid -> last sentAt we've already floated
+  const primed = useRef(false);
+
+  // Restore any cooldown still running from a previous game/mount
+  useEffect(() => {
+    if (!user) return;
+    const { cooldownUntil: cu, reactionCount: rc } = loadCooldown(user.uid);
+    setCooldownUntil(cu);
+    setReactionCount(rc);
+  }, [user]);
 
   // Tick every second to update cooldown display
   useEffect(() => {
@@ -23,16 +46,20 @@ export default function Reactions({ pin, user }) {
   // Listen to all reactions and show floaters
   useEffect(() => {
     if (!pin) return;
+    seenAt.current = {};
+    primed.current = false;
     const reactRef = ref(db, `games/${pin}/reactions`);
     const unsub = onValue(reactRef, snap => {
       const data = snap.val() || {};
       Object.entries(data).forEach(([uid, r]) => {
         if (!r?.type || !r?.sentAt) return;
-        // Show floater for reactions sent within last 3 seconds
-        if (Date.now() - r.sentAt < 3000) {
-          addFloater(r.type);
-        }
+        // Only float a reaction we haven't floated before, otherwise every
+        // change to the node re-floats everyone else's recent reactions.
+        if (r.sentAt <= (seenAt.current[uid] || 0)) return;
+        seenAt.current[uid] = r.sentAt;
+        if (primed.current && Date.now() - r.sentAt < 3000) addFloater(r.type);
       });
+      primed.current = true;   // first snapshot only seeds state, never floats
     });
     return unsub;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,10 +77,17 @@ export default function Reactions({ pin, user }) {
     if (now < cooldownUntil) return;
 
     const newCount = reactionCount + 1;
-    const nextCooldown = newCount >= MAX_REACTIONS ? Date.now() + COOLDOWN_MS : cooldownUntil;
+    const hitLimit = newCount >= MAX_REACTIONS;
+    const nextCooldown = hitLimit ? Date.now() + COOLDOWN_MS : cooldownUntil;
+    const nextCount    = hitLimit ? 0 : newCount;
 
-    setReactionCount(newCount >= MAX_REACTIONS ? 0 : newCount);
+    setReactionCount(nextCount);
     setCooldownUntil(nextCooldown);
+    try {
+      localStorage.setItem(`ysw_react_${user.uid}`, JSON.stringify({
+        cooldownUntil: nextCooldown, reactionCount: nextCount,
+      }));
+    } catch { /* storage blocked — cooldown degrades to in-memory only */ }
     addFloater(emoji);
 
     try {

@@ -125,9 +125,38 @@ so a 12-char code can't clip.
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 6.1 | Reactions cooldown lives in component state → remount each game resets the 3-per-3-min limit | `components/Reactions.jsx:12-13` | TODO |
-| 6.2 | Chat's server-side cooldown rule is dead — `lastMessageAt` is never written anywhere | `components/Chat.jsx` | TODO |
-| 6.3 | Reactions re-adds floaters for all recent entries on every change → duplicates | `components/Reactions.jsx:27-35` | TODO |
+| 6.1 | Reactions cooldown lives in component state → remount each game resets the 3-per-3-min limit | `components/Reactions.jsx:12-13` | DONE |
+| 6.2 | Chat's server-side cooldown rule is dead — `lastMessageAt` is never written anywhere | `components/Chat.jsx` | DONE |
+| 6.3 | Reactions re-adds floaters for all recent entries on every change → duplicates | `components/Reactions.jsx:27-35` | DONE |
 | 6.4 | `hostView` passed to `Reactions`, which doesn't accept it | `pages/Host.jsx:363` | DONE |
-| 6.5 | Players never see the word cloud — `games/{pin}/answers` is host-read-only but Play promises "See the cloud!" | `pages/Play.jsx:231` | TODO |
-| 6.6 | Chat/reactions are pin-keyed so history dies every game; waiting room is silent between games | — | TODO |
+| 6.5 | Players never see the word cloud — `games/{pin}/answers` is host-read-only but Play promises "See the cloud!" | `pages/Play.jsx:231` | DONE |
+| 6.6 | Chat/reactions are pin-keyed so history dies every game; waiting room is silent between games | — | WONTFIX |
+
+**6.1** — cooldown state persists to `localStorage` keyed by uid (not pin), so moving between
+games in a session no longer resets the limit. Wrapped in try/catch, degrading to in-memory.
+**6.2** — `Chat.send` now writes `players/{uid}/lastMessageAt` after the push, so the existing
+DB cooldown rule finally has a value to compare against. Written after the push so the rule
+evaluates the previous timestamp. The host is exempt (no player node).
+**6.3** — tracks last-floated `sentAt` per uid in a ref and only floats genuinely new
+reactions. The first snapshot seeds state without floating, so joining a game no longer
+replays a burst of everyone's recent reactions.
+**6.5** — `games/{pin}/answers` is now readable by everyone while `status === 'reveal'` (the
+correct answer is already public at that point). Play attaches an answers listener at reveal
+and renders `<WordCloud>` for word-cloud questions, which previously showed "See the cloud!"
+above an empty box because `choices` is `[]`. Word-cloud points now show too.
+**6.6** — WONTFIX for now. Making chat/reactions session-scoped is a feature change, not a bug
+fix: it needs a session-level chat path, new rules, and a decision about whether history should
+carry across games at all. Logged as a follow-up rather than bundled in here.
+
+---
+
+## Remaining / deferred
+
+- **Host password + lost-URL rejoin (from the approved design) is still not built.** Recovery is
+  same-browser-anonymous-uid only. This is the largest gap against what was agreed.
+- **2.3 / 2.4 are mitigations, not fixes** — client-computed scores can't be trusted without a
+  server, and Spark offers no rate limiting.
+- **6.6** session-scoped chat/reactions.
+- **Nothing here has been verified in a browser.** All fixes are build-clean and reasoned from
+  the code, but the session flows (auto-join, rejoin, resume, cancel, team persistence) need a
+  real two-device run before trusting them.

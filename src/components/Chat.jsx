@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ref, push, onChildAdded, serverTimestamp } from 'firebase/database';
+import { ref, push, update, onChildAdded } from 'firebase/database';
 import { db } from '../firebase';
 
 const MAX_LEN = 200;
@@ -52,6 +52,13 @@ export default function Chat({ pin, user, playerName, isHost, chatEnabled }) {
         text:    trimmed.slice(0, MAX_LEN),
         sentAt:  now,
       });
+      // The DB cooldown rule reads players/{uid}/lastMessageAt. Nothing wrote it
+      // before, so the rule's "not set" branch was always true and the
+      // server-side limit never actually applied. Written after the push so the
+      // rule evaluates against the previous timestamp.
+      if (!isHost) {
+        await update(ref(db, `games/${pin}/players/${user.uid}`), { lastMessageAt: now });
+      }
     } catch {
       // DB rule rejected (cooldown enforced server-side too) — silently drop
     }

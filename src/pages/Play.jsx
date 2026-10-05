@@ -10,6 +10,7 @@ import Chat from '../components/Chat';
 import Reactions from '../components/Reactions';
 import TeamLobby from '../components/TeamLobby';
 import TeamLeaderboard from '../components/TeamLeaderboard';
+import WordCloud from '../components/WordCloud';
 
 const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
 const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
@@ -31,6 +32,7 @@ export default function Play() {
   const [chatEnabled,     setChatEnabled]     = useState(true);
   const [teams,           setTeams]           = useState({});
   const [myTeamCode,      setMyTeamCode]      = useState(null);
+  const [revealAnswers,   setRevealAnswers]   = useState({});
   const prevQIdx       = useRef(-1);
   const prevPoints     = useRef(0);
   const globalWritten  = useRef(false);
@@ -61,6 +63,8 @@ export default function Play() {
     const unsubReveal   = onValue(ref(db, `games/${pin}/reveal`),       snap => setReveal(snap.val()));
     const unsubPlayers  = onValue(ref(db, `games/${pin}/players`),      snap => setPlayers(snap.val() || {}));
     const unsubChat     = onValue(ref(db, `games/${pin}/chatEnabled`),  snap => setChatEnabled(snap.val() !== false));
+    // Answers become readable to everyone at reveal, which is how players get
+    // to see the word cloud they contributed to.
     // In a session, teams live on the session so they survive between games.
     const unsubTeams    = onValue(ref(db, `${teamBase}/teams`),         snap => setTeams(snap.val() || {}));
     const unsubMyTeam   = sessionCode
@@ -127,6 +131,17 @@ export default function Play() {
       return () => clearTimeout(t);
     }
   }, [players, user]);
+
+  // Word cloud results: answers only become readable once status is 'reveal'
+  useEffect(() => {
+    if (status !== 'reveal' || !pin) { setRevealAnswers({}); return; }
+    const unsub = onValue(
+      ref(db, `games/${pin}/answers`),
+      snap => setRevealAnswers(snap.val() || {}),
+      () => setRevealAnswers({}),
+    );
+    return unsub;
+  }, [status, pin]);
 
   if (!user || !pin) return <Splash>Connecting…</Splash>;
 
@@ -239,6 +254,9 @@ export default function Play() {
           {isCorrect && <p className="reveal-points">+{points} pts</p>}
         </div>
 
+        {isWordCloud ? (
+          <WordCloud answers={revealAnswers} />
+        ) : (
         <div className="reveal-choices">
           {currentQuestion.choices.map((c, i) => (
             <div
@@ -255,7 +273,9 @@ export default function Play() {
             </div>
           ))}
         </div>
+        )}
 
+        {isWordCloud && points > 0 && <p className="reveal-points">+{points} pts</p>}
         <div className="reveal-total">Total: {myPlayer?.score || 0} pts</div>
         {reactionsWidget}
         {chatWidget}

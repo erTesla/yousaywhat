@@ -88,7 +88,7 @@
         },
 
         "answers": {
-          ".read": "auth != null && auth.uid === data.parent().child('hostUid').val()",
+          ".read": "auth != null && (auth.uid === data.parent().child('hostUid').val() || data.parent().child('status').val() === 'reveal')",
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && data.parent().parent().child('status').val() === 'question'"
           }
