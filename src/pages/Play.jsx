@@ -8,6 +8,8 @@ import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
 import Reactions from '../components/Reactions';
+import TeamLobby from '../components/TeamLobby';
+import TeamLeaderboard from '../components/TeamLeaderboard';
 
 const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
 const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
@@ -25,6 +27,7 @@ export default function Play() {
   const [myAnswer,        setMyAnswer]        = useState(null);
   const [scorePop,        setScorePop]        = useState(null);
   const [chatEnabled,     setChatEnabled]     = useState(true);
+  const [teams,           setTeams]           = useState({});
   const prevQIdx       = useRef(-1);
   const prevPoints     = useRef(0);
   const globalWritten  = useRef(false);
@@ -55,6 +58,7 @@ export default function Play() {
     const unsubReveal   = onValue(ref(db, `games/${pin}/reveal`),       snap => setReveal(snap.val()));
     const unsubPlayers  = onValue(ref(db, `games/${pin}/players`),      snap => setPlayers(snap.val() || {}));
     const unsubChat     = onValue(ref(db, `games/${pin}/chatEnabled`),  snap => setChatEnabled(snap.val() !== false));
+    const unsubTeams    = onValue(ref(db, `games/${pin}/teams`),        snap => setTeams(snap.val() || {}));
 
     return () => {
       unsubStatus();
@@ -62,6 +66,7 @@ export default function Play() {
       unsubReveal();
       unsubPlayers();
       unsubChat();
+      unsubTeams();
     };
   }, [pin, user, navigate]);
 
@@ -143,6 +148,13 @@ export default function Play() {
           <p className="muted">Waiting for host to start…</p>
           <p className="player-count-tag">{Object.keys(players).length} players joined</p>
         </div>
+        <TeamLobby
+          pin={pin}
+          user={user}
+          playerName={myPlayer?.name}
+          teams={teams}
+          myTeamCode={myPlayer?.teamCode}
+        />
         {reactionsWidget}
         {chatWidget}
       </div>
@@ -239,7 +251,7 @@ export default function Play() {
       <div className="page play-scoreboard">
         <h2>Leaderboard</h2>
         <div className="my-rank-banner">You're #{myRank}</div>
-        <Scoreboard players={playerList} highlightUid={user.uid} />
+        <TeamLeaderboard players={playerList} teams={teams} highlightUid={user.uid} showDelta />
         {chatWidget}
       </div>
     );
@@ -253,7 +265,7 @@ export default function Play() {
         <h2>{myRank === 1 ? '🏆 You Won!' : 'Game Over!'}</h2>
         {myRank !== 1 && <p className="my-final-rank">You finished #{myRank}</p>}
         <Podium players={playerList} />
-        <Scoreboard players={playerList} highlightUid={user.uid} final />
+        <TeamLeaderboard players={playerList} teams={teams} highlightUid={user.uid} final />
         <button className="btn btn-primary" onClick={() => navigate('/')}>
           Play Again
         </button>

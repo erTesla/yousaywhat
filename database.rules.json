@@ -57,6 +57,17 @@
           }
         },
 
+        "teams": {
+          ".read": true,
+          "$teamCode": {
+            ".write": "auth != null && (
+              !data.exists() ||
+              data.child('captainUid').val() === auth.uid ||
+              newData.child('members').child(auth.uid).val() === true
+            )"
+          }
+        },
+
         "chat": {
           ".read": true,
           "$msgId": {

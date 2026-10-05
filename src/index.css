@@ -769,6 +769,50 @@ select.time-select {
 .podium-rank { font-weight: 800; font-size: 1.1rem; color: var(--muted); }
 
 /* ════════════════════════════════════════════════════════════════════════════ */
+/* TEAM MODE                                                                   */
+/* ════════════════════════════════════════════════════════════════════════════ */
+.team-box {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.team-box-title { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+.team-joined { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.team-badge { font-weight: 700; font-size: 1rem; }
+.team-code-display { font-size: 0.85rem; color: var(--muted); }
+.team-member-count { font-size: 0.8rem; color: var(--muted); }
+
+.team-actions { display: flex; flex-direction: column; gap: 8px; }
+.team-create, .team-join { display: flex; gap: 8px; }
+.team-or { font-size: 0.8rem; color: var(--muted); text-align: center; }
+
+.team-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.team-chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.team-chip-code { color: var(--primary); font-weight: 700; font-size: 0.75rem; }
+.team-chip-count { color: var(--muted); font-size: 0.75rem; }
+
+/* Leaderboard tabs */
+.lb-tabs { display: flex; gap: 0; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.lb-tab { flex: 1; background: transparent; border: none; color: var(--muted); padding: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.lb-tab-active { background: var(--primary); color: #fff; }
+
+/* ════════════════════════════════════════════════════════════════════════════ */
 /* GLOBAL LEADERBOARD                                                          */
 /* ════════════════════════════════════════════════════════════════════════════ */
 .gl-header { text-align: center; padding: 8px 0 4px; }

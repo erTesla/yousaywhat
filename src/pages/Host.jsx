@@ -11,6 +11,7 @@ import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
 import Reactions from '../components/Reactions';
+import TeamLeaderboard from '../components/TeamLeaderboard';
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -25,6 +26,7 @@ export default function Host() {
   const [timerDone, setTimerDone]     = useState(false);
   const [busy, setBusy]               = useState(false);
   const [chatEnabled, setChatEnabled] = useState(true);
+  const [teams,       setTeams]       = useState({});
 
   // ── Verify host identity ────────────────────────────────────────────────────
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function Host() {
       if (!snap.exists()) return;
       const data = snap.val();
       setGame(data);
+      setTeams(data.teams || {});
     });
     return unsub;
   }, [verified, pin]);
@@ -289,7 +292,7 @@ export default function Host() {
       {status === 'scoreboard' && (
         <div className="host-section">
           <h2>Leaderboard</h2>
-          <Scoreboard players={playerList} showDelta />
+          <TeamLeaderboard players={playerList} teams={teams} showDelta />
           <button
             className="btn btn-primary btn-large"
             onClick={isLastQ ? endGame : nextQuestion}
@@ -305,7 +308,7 @@ export default function Host() {
         <div className="host-section">
           <h2>🏆 Final Results</h2>
           <Podium players={playerList} />
-          <Scoreboard players={playerList} final />
+          <TeamLeaderboard players={playerList} teams={teams} final />
           <button className="btn btn-ghost" onClick={() => navigate('/')}>Back to Home</button>
         </div>
       )}
