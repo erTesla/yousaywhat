@@ -121,6 +121,10 @@
           ".read": true
         },
 
+        "teamMode": {
+          ".read": true
+        },
+
         "reactions": {
           ".read": true,
           "$uid": {

@@ -63,6 +63,16 @@ export default function SessionHost() {
     setBusy(false);
   }
 
+  async function toggleTeamMode() {
+    setBusy(true);
+    try {
+      await update(ref(db, `sessions/${code}`), { teamMode: !session.teamMode });
+    } catch {
+      setLoadErr('Could not change team mode.');
+    }
+    setBusy(false);
+  }
+
   // Abandoned game: release players from it without recording a result.
   async function cancelGame() {
     setBusy(true);
@@ -144,6 +154,44 @@ export default function SessionHost() {
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      <div className="session-teams-bar">
+        <div className="stb-left">
+          <span className="stb-title">Team mode</span>
+          <span className="muted stb-desc">
+            {session.teamMode
+              ? 'Players can create and join teams in the game lobby.'
+              : 'Off — players play as individuals and see no team options.'}
+          </span>
+        </div>
+        <div className="stb-right">
+          {session.teamMode && (
+            <span className="muted stb-count">
+              {Object.keys(session.teams || {}).length} team{Object.keys(session.teams || {}).length !== 1 ? 's' : ''}
+            </span>
+          )}
+          <button
+            className={`btn toggle-btn${session.teamMode ? ' toggle-on' : ''}`}
+            onClick={toggleTeamMode}
+            disabled={busy}
+            aria-pressed={!!session.teamMode}
+          >
+            <span className="toggle-dot" />
+            {session.teamMode ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      </div>
+
+      {session.teamMode && Object.keys(session.teams || {}).length > 0 && (
+        <div className="session-teams-list">
+          {Object.entries(session.teams).map(([tc, t]) => (
+            <div key={tc} className="team-chip">
+              {t.name} <span className="team-chip-code">#{tc}</span>
+              <span className="team-chip-count">{Object.keys(t.members || {}).length}</span>
+            </div>
+          ))}
         </div>
       )}
 

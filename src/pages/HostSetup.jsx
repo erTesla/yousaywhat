@@ -86,6 +86,9 @@ export default function HostSetup() {
   const defaultQ = gameType === 'wordcloud' ? BLANK_WC() : BLANK_Q();
 
   const [questions, setQuestions] = useState([defaultQ]);
+  // Only relevant for one-off games; inside a session the host toggles team
+  // mode on the session dashboard so it persists across games.
+  const [teamMode,  setTeamMode]  = useState(false);
   const [launching, setLaunching] = useState(false);
   const [error,     setError]     = useState('');
   const [importMsg, setImportMsg] = useState('');
@@ -179,7 +182,9 @@ export default function HostSetup() {
     try {
       if (existingPin && existingSecret) {
         // Session already created by picker — just write questions
-        await update(ref(db, `games/${existingPin}`), { questions: qs });
+        const gameUpdates = { questions: qs };
+        if (!sessionCode) gameUpdates.teamMode = teamMode;
+        await update(ref(db, `games/${existingPin}`), gameUpdates);
         // Only now is the game playable, so push session players into it
         if (sessionCode) {
           await update(ref(db, `sessions/${sessionCode}`), {
@@ -321,6 +326,25 @@ export default function HostSetup() {
           </div>
         ))}
       </div>
+
+      {!sessionCode && (
+        <label className="setup-option">
+          <input
+            type="checkbox"
+            checked={teamMode}
+            onChange={e => setTeamMode(e.target.checked)}
+          />
+          <span>
+            <strong>Team mode</strong>
+            <span className="muted"> — players can create and join teams in the lobby</span>
+          </span>
+        </label>
+      )}
+      {sessionCode && (
+        <p className="muted setup-option-note">
+          Team mode for this game is controlled on the session dashboard.
+        </p>
+      )}
 
       <div className="setup-footer">
         <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_Q()])}>

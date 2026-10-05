@@ -1791,3 +1791,65 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
   color: var(--primary);
   font-weight: 700;
 }
+
+/* ── Team mode toggle (session dashboard) ────────────────────────────────── */
+.session-teams-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+}
+
+.stb-left  { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stb-title { font-weight: 700; font-size: 0.95rem; }
+.stb-desc  { font-size: 0.78rem; }
+.stb-right { display: flex; align-items: center; gap: 12px; }
+.stb-count { font-size: 0.8rem; white-space: nowrap; }
+
+.toggle-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 7px 16px 7px 10px;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  gap: 8px;
+}
+.toggle-btn .toggle-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--muted);
+  transition: background 0.15s;
+}
+.toggle-btn.toggle-on {
+  background: rgba(46,196,182,0.16);
+  border-color: rgba(46,196,182,0.5);
+  color: var(--green);
+}
+.toggle-btn.toggle-on .toggle-dot { background: var(--green); }
+
+.session-teams-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Setup page options */
+.setup-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 4px 0 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.setup-option input { margin-top: 3px; cursor: pointer; }
+.setup-option-note { font-size: 0.78rem; margin: 4px 0 12px; }

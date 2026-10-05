@@ -31,6 +31,7 @@ export default function Play() {
   const [chatEnabled,     setChatEnabled]     = useState(true);
   const [teams,           setTeams]           = useState({});
   const [myTeamCode,      setMyTeamCode]      = useState(null);
+  const [teamMode,        setTeamMode]        = useState(false);
   const [revealAnswers,   setRevealAnswers]   = useState({});
   const prevQIdx       = useRef(-1);
   const prevPoints     = useRef(0);
@@ -66,6 +67,8 @@ export default function Play() {
     // to see the word cloud they contributed to.
     // In a session, teams live on the session so they survive between games.
     const unsubTeams    = onValue(ref(db, `${teamBase}/teams`),         snap => setTeams(snap.val() || {}));
+    // Team options only appear when the host has switched team mode on.
+    const unsubTeamMode = onValue(ref(db, `${teamBase}/teamMode`),      snap => setTeamMode(snap.val() === true));
     const unsubMyTeam   = sessionCode
       ? onValue(ref(db, `sessions/${sessionCode}/players/${user.uid}/teamCode`), snap => setMyTeamCode(snap.val() || null))
       : () => {};
@@ -77,6 +80,7 @@ export default function Play() {
       unsubPlayers();
       unsubChat();
       unsubTeams();
+      unsubTeamMode();
       unsubMyTeam();
     };
   }, [pin, user, navigate, sessionCode, teamBase]);
@@ -172,12 +176,14 @@ export default function Play() {
           <p className="muted">Waiting for host to start…</p>
           <p className="player-count-tag">{Object.keys(players).length} players joined</p>
         </div>
-        <TeamLobby
-          basePath={teamBase}
-          user={user}
-          teams={teams}
-          myTeamCode={sessionCode ? myTeamCode : myPlayer?.teamCode}
-        />
+        {teamMode && (
+          <TeamLobby
+            basePath={teamBase}
+            user={user}
+            teams={teams}
+            myTeamCode={sessionCode ? myTeamCode : myPlayer?.teamCode}
+          />
+        )}
         {reactionsWidget}
         {chatWidget}
       </div>
