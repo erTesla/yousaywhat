@@ -3,7 +3,7 @@ import Scoreboard from './Scoreboard';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-export default function TeamLeaderboard({ playerList, teams, highlightUid, showDelta, final }) {
+export default function TeamLeaderboard({ players: playerList, teams, highlightUid, showDelta, final }) {
   const [tab, setTab] = useState('individual');
 
   // Compute team scores from playerList

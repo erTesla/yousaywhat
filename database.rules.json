@@ -1,5 +1,18 @@
 {
   "rules": {
+    "feedbackSessions": {
+      "$code": {
+        ".read": true,
+        ".write": "!data.exists()",
+        "entries": {
+          "$entryId": {
+            ".write": "!data.exists() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 2000",
+            ".validate": "newData.hasChildren(['text', 'timestamp'])"
+          }
+        }
+      }
+    },
+
     "sessions": {
       "$code": {
         ".read": true,
@@ -85,14 +98,7 @@
         },
 
         "results": {
-          "players": {
-            ".read": true
-          },
-          "summary": {
-            ".read": "auth != null && auth.uid === data.parent().parent().child('hostUid').val()"
-          },
-          "endedAt":       { ".read": true },
-          "questionCount": { ".read": true }
+          ".read": true
         },
 
         "chat": {
