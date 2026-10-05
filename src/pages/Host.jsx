@@ -134,6 +134,26 @@ export default function Host() {
     const isWordcloud = q.type === 'wordcloud';
     const updates = { status: 'reveal', 'reveal/index': currentIdx, 'reveal/correct': q.correct };
 
+    // Snapshot THIS question's responses before the next question clears
+    // `answers`. Without this, every question in the results breakdown showed
+    // the same distribution — whatever happened to be in `answers` at the end.
+    const perQuestion = { type: q.type || 'mcq', text: q.text, correct: q.correct ?? null };
+    if (isWordcloud) {
+      perQuestion.words = Object.values(answers)
+        .map(a => a.text)
+        .filter(Boolean)
+        .slice(0, 200);
+    } else {
+      const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+      Object.values(answers).forEach(a => {
+        if (a.choice !== undefined && a.choice !== null) counts[a.choice] = (counts[a.choice] || 0) + 1;
+      });
+      perQuestion.choiceCounts = counts;
+      perQuestion.choices      = q.choices || [];
+    }
+    perQuestion.responseCount = Object.keys(answers).length;
+    updates[`history/${currentIdx}`] = perQuestion;
+
     for (const [uid, ans] of Object.entries(answers)) {
       // Word cloud has no correct answer — award participation so session
       // totals still move instead of staying flat at zero.
@@ -165,17 +185,10 @@ export default function Host() {
   async function endGame() {
     setBusy(true);
     try {
-      // Build frozen results snapshot
+      // Per-question responses were captured at each reveal, so use those
+      // rather than the live `answers` node (which only holds the last question).
       const qs = game.questions || [];
-      const summary = {};
-      qs.forEach((q, idx) => {
-        if (q.type === 'wordcloud') return;
-        const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
-        Object.values(answers).forEach(a => {
-          if (a.choice !== undefined && a.choice !== null) counts[a.choice] = (counts[a.choice] || 0) + 1;
-        });
-        summary[idx] = { choiceCounts: counts, correct: q.correct };
-      });
+      const summary = game.history || {};
 
       const playerHistory = {};
       Object.entries(players).forEach(([uid, p]) => {

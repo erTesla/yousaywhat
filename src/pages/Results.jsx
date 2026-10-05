@@ -115,15 +115,46 @@ export default function Results() {
           <h3>Question Breakdown</h3>
           {questions.map((q, idx) => {
             const s = results.summary[idx];
-            if (!s || q.type === 'wordcloud') return (
+            if (!s) return (
               <div key={idx} className="qb-card">
                 <div className="qb-header">
                   <span className="qb-num">Q{idx + 1}</span>
                   <span className="qb-text">{q.text}</span>
-                  <span className="qb-badge wc">☁️ Word Cloud</span>
+                  <span className="qb-badge">no responses</span>
                 </div>
               </div>
             );
+
+            // Word cloud / poll: show the actual responses for THIS question
+            if ((s.type || q.type) === 'wordcloud') {
+              const freq = {};
+              (s.words || []).forEach(w => {
+                const k = String(w).trim().toLowerCase();
+                if (k) freq[k] = (freq[k] || 0) + 1;
+              });
+              const ranked = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+              return (
+                <div key={idx} className="qb-card">
+                  <div className="qb-header">
+                    <span className="qb-num">Q{idx + 1}</span>
+                    <span className="qb-text">{q.text}</span>
+                    <span className="qb-badge wc">☁️ Word Cloud</span>
+                  </div>
+                  <p className="qb-meta">{s.responseCount || 0} response{s.responseCount !== 1 ? 's' : ''}</p>
+                  {ranked.length === 0 ? (
+                    <p className="muted" style={{ fontSize: '0.85rem' }}>No responses.</p>
+                  ) : (
+                    <div className="qb-words">
+                      {ranked.map(([word, n]) => (
+                        <span key={word} className="qb-word">
+                          {word}{n > 1 && <span className="qb-word-n">×{n}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             const total = Object.values(s.choiceCounts || {}).reduce((a, b) => a + b, 0) || 1;
             return (
@@ -132,6 +163,7 @@ export default function Results() {
                   <span className="qb-num">Q{idx + 1}</span>
                   <span className="qb-text">{q.text}</span>
                 </div>
+                <p className="qb-meta">{s.responseCount ?? total} response{(s.responseCount ?? total) !== 1 ? 's' : ''}</p>
                 <div className="qb-bars">
                   {q.choices.map((c, ci) => {
                     const count = s.choiceCounts?.[ci] || 0;

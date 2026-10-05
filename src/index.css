@@ -1761,3 +1761,33 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 
 /* Access-denied card stacks two actions */
 .page-centered .card .btn + .btn { margin-top: 10px; }
+
+/* Per-question breakdown extras */
+.qb-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.qb-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.qb-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+}
+
+.qb-word-n {
+  font-size: 0.7rem;
+  color: var(--primary);
+  font-weight: 700;
+}

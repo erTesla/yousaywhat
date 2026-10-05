@@ -144,9 +144,13 @@ async function run() {
   // 0.3 player results page
   const resPage = await playerCtx.newPage();
   await resPage.goto(`${BASE}/results?pin=${new URL(host.url()).searchParams.get('pin')}`, { waitUntil: 'networkidle' });
-  await resPage.waitForTimeout(2500);
+  // Assert real content rendered, not just the absence of an error while loading
+  await resPage.locator('.score-row, .results-section').first()
+    .waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   const resTxt = (await resPage.locator('body').innerText());
-  check('0.3 player results page loads (was permission-denied)', !/Could not load/i.test(resTxt), resTxt.slice(0, 80).replace(/\n/g, ' '));
+  check('0.3 player results page loads (was permission-denied)',
+        !/Could not load/i.test(resTxt) && /TEST-Player/.test(resTxt),
+        resTxt.replace(/\n+/g, ' | ').slice(0, 90));
   await resPage.close();
 
   // back to dashboard, confirm cumulative score landed
@@ -186,7 +190,10 @@ async function run() {
   // 1.2 Resume/Cancel while a game is live
   const dash = await hostCtx.newPage();
   await dash.goto(host.url().replace(/\/host\?.*$/, `/session/host?code=${code}&secret=x`), { waitUntil: 'networkidle' });
-  await dash.waitForTimeout(2500);
+  // Wait for the live-game banner rather than a fixed sleep — the dashboard has
+  // to auth, verify host, then attach the session listener before it appears.
+  const banner = dash.locator('.session-active-banner');
+  await banner.waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   const liveTxt = await dash.locator('body').innerText();
   check('1.2 dashboard shows game in progress', /Game in progress/i.test(liveTxt));
   check('1.2 Resume Game button present', await dash.getByRole('button', { name: /Resume Game/i }).count() > 0);
