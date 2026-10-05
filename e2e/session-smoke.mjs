@@ -653,6 +653,8 @@ async function run() {
   await endHost.waitForURL(/\/host\?/, { timeout: 20000 });
 
   // End is available straight from the lobby, before a single question
+  await endHost.locator('.host-topbar').waitFor({ state: 'visible', timeout: 25000 });
+  await endHost.getByRole('button', { name: /^⏹ End$/ }).waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   check('End control is available in the lobby',
         await endHost.getByRole('button', { name: /^\u23F9 End$/ }).count() > 0);
 
