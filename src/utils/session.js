@@ -1,3 +1,6 @@
+import { ref, remove } from 'firebase/database';
+import { db } from '../firebase';
+
 // Short, unambiguous words — easy to say out loud and type. Avoids words that
 // sound alike over a noisy room. 60 words x 9000 numbers = 540k codes.
 const WORDS = [
@@ -36,3 +39,18 @@ export async function hashPassword(code, password) {
 // Scored games count toward the leaderboard; activities are participation only.
 const SCORED_TYPES = ['quiz', 'mixed'];
 export const isActivityType = t => !SCORED_TYPES.includes(t);
+
+export const followedKey = code => `ysw_followed_${code}`;
+
+// Removes the player from the session entirely: their roster entry (and with it
+// their cumulative score), their team membership, and the live game they are in.
+// Each removal is separately permitted, so one failing must not block the rest.
+export async function leaveSession({ code, uid, gamePin, teamCode }) {
+  const paths = [];
+  if (gamePin)  paths.push(`games/${gamePin}/players/${uid}`);
+  if (teamCode) paths.push(`sessions/${code}/teams/${teamCode}/members/${uid}`);
+  paths.push(`sessions/${code}/players/${uid}`);
+
+  await Promise.allSettled(paths.map(path => remove(ref(db, path))));
+  try { sessionStorage.removeItem(followedKey(code)); } catch { /* storage blocked */ }
+}

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ref, onValue, set, get, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
+import { leaveSession } from '../utils/session';
 import Timer from '../components/Timer';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
@@ -34,6 +35,7 @@ export default function Play() {
   const [teamMode,        setTeamMode]        = useState(false);
   const [gameKind,        setGameKind]        = useState('quiz');
   const [revealAnswers,   setRevealAnswers]   = useState({});
+  const [confirmLeave,    setConfirmLeave]    = useState(false);
   const prevQIdx       = useRef(-1);
   const prevPoints     = useRef(0);
   const globalWritten  = useRef(false);
@@ -170,8 +172,10 @@ export default function Play() {
     return unsub;
   }, [sessionCode, pin, navigate]);
 
-  function leaveSession() {
-    if (sessionCode) sessionStorage.removeItem(`ysw_followed_${sessionCode}`);
+  async function handleLeave() {
+    if (sessionCode) {
+      await leaveSession({ code: sessionCode, uid: user.uid, gamePin: pin, teamCode: myTeamCode });
+    }
     navigate('/');
   }
 
@@ -192,8 +196,18 @@ export default function Play() {
 
   const reactionsWidget = <Reactions pin={pin} user={user} />;
 
-  const exitWidget = (
-    <button className="btn-exit" onClick={leaveSession} title="Leave and join another session">
+  const exitWidget = confirmLeave ? (
+    <div className="exit-confirm">
+      <span>Leave and lose your score here?</span>
+      <button className="btn-exit-yes" onClick={handleLeave}>Leave</button>
+      <button className="btn-exit-no" onClick={() => setConfirmLeave(false)}>Stay</button>
+    </div>
+  ) : (
+    <button
+      className="btn-exit"
+      onClick={() => setConfirmLeave(true)}
+      title="Leave and join another session"
+    >
       ✕ Leave
     </button>
   );

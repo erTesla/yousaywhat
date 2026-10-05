@@ -2272,3 +2272,49 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 }
 .poll-mini-fill { height: 100%; background: var(--yellow); border-radius: 999px; }
 .poll-mini-n { color: var(--muted); text-align: right; }
+
+/* ── Leave confirmation ─────────────────────────────────────────────────── */
+.leave-confirm {
+  background: var(--surface);
+  border: 1px solid rgba(233,69,96,0.4);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+}
+.leave-confirm p { font-size: 0.85rem; margin: 0; }
+.leave-confirm-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.leave-confirm-actions .btn { padding: 9px 20px; font-size: 0.85rem; }
+
+.exit-confirm {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 195;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid rgba(233,69,96,0.5);
+  border-radius: 999px;
+  padding: 6px 10px 6px 14px;
+  font-size: 0.72rem;
+  box-shadow: var(--shadow);
+  max-width: calc(100vw - 32px);
+}
+
+.btn-exit-yes, .btn-exit-no {
+  border: none;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-exit-yes { background: var(--primary); color: #fff; }
+.btn-exit-no  { background: rgba(255,255,255,0.12); color: var(--muted); }
+.btn-exit-no:hover { color: #fff; }

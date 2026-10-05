@@ -3,13 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ref, get, set, onValue } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
+import { leaveSession, followedKey } from '../utils/session';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
-
-// Remembers which game pin this tab has already been pushed into, so returning
-// to the waiting room mid-game offers a manual rejoin instead of yanking the
-// player forward in a loop.
-const followedKey = code => `ysw_followed_${code}`;
 
 export default function SessionPlay() {
   const [params] = useSearchParams();
@@ -21,6 +17,7 @@ export default function SessionPlay() {
   const [error,    setError]    = useState('');
   const [joining,  setJoining]  = useState(false);
   const [rejoinPin, setRejoinPin] = useState(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   // Joins the game without clobbering an existing player record.
   const joinGame = useCallback(async (pin, playerName) => {
@@ -61,8 +58,14 @@ export default function SessionPlay() {
     return unsub;
   }, [code, user, joinGame]);
 
-  function leaveSession() {
-    sessionStorage.removeItem(followedKey(code));
+  async function handleLeave() {
+    setJoining(true);
+    await leaveSession({
+      code,
+      uid:      user.uid,
+      gamePin:  session?.currentGamePin,
+      teamCode: session?.players?.[user.uid]?.teamCode,
+    });
     navigate('/');
   }
 
@@ -117,9 +120,26 @@ export default function SessionPlay() {
         </div>
       )}
 
-      <button className="btn btn-ghost session-leave-btn" onClick={leaveSession}>
-        ✕ Leave this session
-      </button>
+      {confirmLeave ? (
+        <div className="leave-confirm">
+          <p className="muted">
+            Leave <strong>{session.name}</strong>? You'll be removed from the session and your
+            score here is deleted.
+          </p>
+          <div className="leave-confirm-actions">
+            <button className="btn btn-primary" onClick={handleLeave} disabled={joining}>
+              {joining ? 'Leaving…' : 'Yes, leave'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setConfirmLeave(false)} disabled={joining}>
+              Stay
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className="btn btn-ghost session-leave-btn" onClick={() => setConfirmLeave(true)}>
+          ✕ Leave this session
+        </button>
+      )}
 
       <div className="session-lb-mini">
         <h3>Session Leaderboard</h3>
