@@ -43,6 +43,13 @@
           ".read": true
         },
 
+        "reactions": {
+          ".read": true,
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+
         "chat": {
           ".read": true,
           "$msgId": {

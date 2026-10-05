@@ -10,6 +10,7 @@ import Timer from '../components/Timer';
 import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
+import Reactions from '../components/Reactions';
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -308,6 +309,7 @@ export default function Host() {
           <button className="btn btn-ghost" onClick={() => navigate('/')}>Back to Home</button>
         </div>
       )}
+      <Reactions pin={pin} user={user} hostView />
       <Chat
         pin={pin}
         user={user}

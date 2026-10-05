@@ -7,6 +7,7 @@ import Timer from '../components/Timer';
 import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
+import Reactions from '../components/Reactions';
 
 const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
 const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
@@ -108,6 +109,8 @@ export default function Play() {
     />
   );
 
+  const reactionsWidget = <Reactions pin={pin} user={user} />;
+
   // ── LOBBY ────────────────────────────────────────────────────────────────────
   if (!status || status === 'lobby') {
     return (
@@ -119,6 +122,7 @@ export default function Play() {
           <p className="muted">Waiting for host to start…</p>
           <p className="player-count-tag">{Object.keys(players).length} players joined</p>
         </div>
+        {reactionsWidget}
         {chatWidget}
       </div>
     );
@@ -161,6 +165,7 @@ export default function Play() {
             <p className="muted">Waiting for everyone else…</p>
           </div>
         )}
+        {reactionsWidget}
         {chatWidget}
       </div>
     );
@@ -200,6 +205,7 @@ export default function Play() {
         </div>
 
         <div className="reveal-total">Total: {myPlayer?.score || 0} pts</div>
+        {reactionsWidget}
         {chatWidget}
       </div>
     );
