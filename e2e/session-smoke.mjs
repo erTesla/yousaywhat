@@ -490,6 +490,64 @@ async function run() {
   await player.waitForURL(/\/session\/play/, { timeout: 25000 });
   check('player can rejoin the session after leaving', true);
 
+
+  // ───────────────────────────── 8f. Poll question inside a QUIZ game
+  // This is the case that shipped broken: the activity UI was gated on the
+  // game's type, so a poll set via the editor dropdown still showed Reveal Answer.
+  log('\n[8f] Poll question inside a quiz game');
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+
+  const mixHost = await hostCtx.newPage();
+  globalThis.__pages.mixHost = mixHost;
+  await mixHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await mixHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
+  await mixHost.getByRole('button', { name: /Start New Game/i }).click();
+  await mixHost.waitForURL(/\/create\?/, { timeout: 20000 });
+  await mixHost.locator('.game-type-card').first().waitFor({ state: 'visible', timeout: 25000 });
+  // deliberately a QUIZ game, with the question switched to poll in the editor
+  await mixHost.locator('.game-type-card', { hasText: 'Quiz' }).first().click();
+  await mixHost.waitForURL(/\/create\/setup/, { timeout: 20000 });
+  await mixHost.locator('select').first().selectOption('poll');
+  await mixHost.waitForTimeout(500);
+  check('switching a quiz question to poll hides its correct-answer radio',
+        await mixHost.locator('input[type=radio]').count() === 0);
+  await mixHost.getByPlaceholder(/Question text/i).fill('Cats or dogs?');
+  await mixHost.getByPlaceholder(/Option A/i).fill('Cats');
+  await mixHost.getByPlaceholder(/Option B/i).fill('Dogs');
+  await mixHost.getByRole('button', { name: /Launch Game Now/i }).click();
+  await mixHost.waitForURL(/\/host\?/, { timeout: 20000 });
+
+  await player.waitForURL(/\/play\?pin=/, { timeout: 30000 });
+  const startBtn = mixHost.getByRole('button', { name: /Start Game/i });
+  await startBtn.waitFor({ state: 'visible', timeout: 25000 });
+  await mixHost.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find(x => /Start Game/i.test(x.textContent));
+    return b && !b.disabled;
+  }, null, { timeout: 25000 }).catch(() => {});
+  await startBtn.click({ timeout: 25000 });
+
+  await mixHost.waitForTimeout(2500);
+  check('poll question in a quiz shows NO Reveal Answer',
+        await mixHost.getByRole('button', { name: /Reveal Answer/i }).count() === 0);
+  check('poll question in a quiz shows the live graph',
+        await mixHost.locator('.host-poll-graph, .wc-stage').count() > 0);
+  check('poll question in a quiz offers an advance action instead of reveal',
+        await mixHost.getByRole('button', { name: /End Game|Next Question/i }).count() > 0);
+  await player.locator('.poll-option').first().waitFor({ state: 'visible', timeout: 25000 });
+  check('player gets the poll vote UI inside a quiz game',
+        await player.locator('.answer-btn').count() === 0);
+
+  await player.locator('.poll-option').first().click();
+  await mixHost.waitForTimeout(3000);
+  check('host counts the vote on a quiz poll question',
+        /1 vote/i.test(await mixHost.locator('body').innerText()));
+
+  await mixHost.getByRole('button', { name: /End Game|Next Question/i }).first().click();
+  await mixHost.waitForTimeout(4500);
+  await mixHost.close();
+  delete globalThis.__pages.mixHost;
+
   // ───────────────────────────── 9. Host rejoin from a different "device"
   log('\n[9] Host password rejoin from a fresh device');
   const newDeviceCtx = await browser.newContext();   // fresh storage => new anon uid

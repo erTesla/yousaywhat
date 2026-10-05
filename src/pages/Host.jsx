@@ -16,7 +16,7 @@ import WordCloud from '../components/WordCloud';
 // Word cloud and poll are activities, not scored games: participation is
 // tracked but no points are awarded and they never affect ranking.
 const ACTIVITY_TYPES = ['wordcloud', 'poll'];
-const isActivityQ = q => ACTIVITY_TYPES.includes(q?.type);
+const isActivityType = q => ACTIVITY_TYPES.includes(q?.type);
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -129,34 +129,34 @@ export default function Host() {
     await pushQuestion(0);
   }
 
-  async function revealAnswer() {
-    if (!game) return;
-    const q = game.questions[currentIdx];
-    setBusy(true);
-
-    const isWordcloud = q.type === 'wordcloud';
-    const isActivity  = isActivityQ(q);
-    const updates = { status: 'reveal', 'reveal/index': currentIdx, 'reveal/correct': q.correct };
-
-    // Snapshot THIS question's responses before the next question clears
-    // `answers`. Without this, every question in the results breakdown showed
-    // the same distribution — whatever happened to be in `answers` at the end.
-    const perQuestion = { type: q.type || 'mcq', text: q.text, correct: q.correct ?? null };
-    if (isWordcloud) {
-      perQuestion.words = Object.values(answers)
-        .map(a => a.text)
-        .filter(Boolean)
-        .slice(0, 200);
+  // Snapshot a question's responses before the next question clears `answers`.
+  // Without this, every question in the results breakdown showed the same
+  // distribution — whatever happened to be in `answers` at the end.
+  function questionHistory(q) {
+    const entry = { type: q.type || 'mcq', text: q.text, correct: q.correct ?? null };
+    if (q.type === 'wordcloud') {
+      entry.words = Object.values(answers).map(a => a.text).filter(Boolean).slice(0, 200);
     } else {
       const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
       Object.values(answers).forEach(a => {
         if (a.choice !== undefined && a.choice !== null) counts[a.choice] = (counts[a.choice] || 0) + 1;
       });
-      perQuestion.choiceCounts = counts;
-      perQuestion.choices      = q.choices || [];
+      entry.choiceCounts = counts;
+      entry.choices      = q.choices || [];
     }
-    perQuestion.responseCount = Object.keys(answers).length;
-    updates[`history/${currentIdx}`] = perQuestion;
+    entry.responseCount = Object.keys(answers).length;
+    return entry;
+  }
+
+  async function revealAnswer() {
+    if (!game) return;
+    const q = game.questions[currentIdx];
+    setBusy(true);
+
+    const isActivity = isActivityType(q);
+    const updates = { status: 'reveal', 'reveal/index': currentIdx, 'reveal/correct': q.correct };
+
+    updates[`history/${currentIdx}`] = questionHistory(q);
 
     for (const [uid, ans] of Object.entries(answers)) {
       // Activities award nothing — ranking is driven only by quiz questions.
@@ -273,6 +273,20 @@ export default function Host() {
     }
   }
 
+  // Activity question inside a scored game: record its responses, then advance.
+  // There is no correct answer, so the reveal step is skipped entirely.
+  async function finishActivityQuestion() {
+    const q = game.questions[currentIdx];
+    setBusy(true);
+    try {
+      await update(ref(db, `games/${pin}`), { [`history/${currentIdx}`]: questionHistory(q) });
+    } finally {
+      setBusy(false);
+    }
+    if (isLastQ) await endGame();
+    else         await nextQuestion();
+  }
+
   async function showScoreboard() {
     await update(ref(db, `games/${pin}`), { status: 'scoreboard' });
   }
@@ -372,9 +386,15 @@ export default function Host() {
   const playerList   = Object.entries(players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
   const playerCount  = playerList.length;
   const allAnswered  = playerCount > 0 && answerCount >= playerCount;
-  const isWordCloudGame = game.gameType === 'wordcloud';
-  const isPollGame      = game.gameType === 'poll';
-  const isActivityGame  = game.kind === 'activity' || isWordCloudGame || isPollGame;
+  // Whole-game activity (picked from the Poll / Word Cloud card)…
+  const activityGame    = game.kind === 'activity' || game.gameType === 'wordcloud' || game.gameType === 'poll';
+  // …versus the type of the question on screen right now, which is what
+  // decides the UI. A poll question inside a quiz must not show Reveal Answer.
+  const qType           = game.currentQuestion?.type || game.questions?.[currentIdx]?.type || 'mcq';
+  const isPollQ         = qType === 'poll';
+  const isWordCloudQ    = qType === 'wordcloud';
+  const isActivityQ     = isPollQ || isWordCloudQ;
+  const firstQType      = game.questions?.[0]?.type || 'mcq';
 
   return (
     <div className="page host-page">
@@ -421,8 +441,8 @@ export default function Host() {
             {playerCount === 0 && <p className="muted">Share PIN <strong>{pin}</strong> to invite players</p>}
           </div>
           <p className="muted">
-            {isWordCloudGame ? '☁️ Word cloud prompt ready'
-              : isPollGame    ? '📊 Poll ready'
+            {activityGame && firstQType === 'wordcloud' ? '☁️ Word cloud prompt ready'
+              : activityGame && firstQType === 'poll'    ? '📊 Poll ready'
               : `${questionCount} question${questionCount !== 1 ? 's' : ''} loaded`}
           </p>
           <button
@@ -430,18 +450,21 @@ export default function Host() {
             onClick={startGame}
             disabled={playerCount === 0 || busy}
           >
-            {busy ? 'Starting…' : isWordCloudGame ? 'Open Word Cloud' : isPollGame ? 'Open Poll' : 'Start Game'}
+            {busy ? 'Starting…'
+              : activityGame && firstQType === 'wordcloud' ? 'Open Word Cloud'
+              : activityGame && firstQType === 'poll'      ? 'Open Poll'
+              : 'Start Game'}
           </button>
         </div>
       )}
 
       {/* ── ACTIVITY (own flow: no Q numbers, no reveal, no scoreboard) ── */}
-      {status === 'question' && game.currentQuestion && isActivityGame && (
+      {status === 'question' && game.currentQuestion && isActivityQ && (
         <div className="host-section wc-host">
           <div className="wc-prompt-bar">
-            <span className="wc-chip">{isPollGame ? '📊 Live poll' : '☁️ Live word cloud'}</span>
+            <span className="wc-chip">{isPollQ ? '📊 Live poll' : '☁️ Live word cloud'}</span>
             <span className="muted wc-count">
-              {answerCount} {isPollGame ? 'vote' : 'response'}{answerCount !== 1 ? 's' : ''} from {playerCount} player{playerCount !== 1 ? 's' : ''}
+              {answerCount} {isPollQ ? 'vote' : 'response'}{answerCount !== 1 ? 's' : ''} from {playerCount} player{playerCount !== 1 ? 's' : ''}
             </span>
           </div>
 
@@ -449,8 +472,8 @@ export default function Host() {
 
           <div className="wc-stage">
             {answerCount === 0 ? (
-              <p className="muted">Waiting for the first {isPollGame ? 'vote' : 'response'}…</p>
-            ) : isPollGame ? (
+              <p className="muted">Waiting for the first {isPollQ ? 'vote' : 'response'}…</p>
+            ) : isPollQ ? (
               <div className="host-poll-graph">
                 {(game.currentQuestion.choices || []).filter(Boolean).map((c, i) => {
                   const count = Object.values(answers).filter(a => a.choice === i).length;
@@ -475,23 +498,34 @@ export default function Host() {
           </div>
 
           <div className="wc-actions">
-            {sessionCode && (
-              <button className="btn btn-ghost" onClick={() => saveActivity(true)} disabled={busy}>
-                💾 Save & back to dashboard
+            {activityGame ? (
+              <>
+                {sessionCode && (
+                  <button className="btn btn-ghost" onClick={() => saveActivity(true)} disabled={busy}>
+                    💾 Save & back to dashboard
+                  </button>
+                )}
+                <button className="btn btn-primary" onClick={endActivity} disabled={busy}>
+                  ⏹ End {isPollQ ? 'poll' : 'word cloud'}
+                </button>
+              </>
+            ) : (
+              // An activity question inside a quiz: no reveal, just move on.
+              <button className="btn btn-primary" onClick={finishActivityQuestion} disabled={busy}>
+                {isLastQ ? '⏹ End Game' : 'Next Question →'}
               </button>
             )}
-            <button className="btn btn-primary" onClick={endActivity} disabled={busy}>
-              ⏹ End {isPollGame ? 'poll' : 'word cloud'}
-            </button>
           </div>
           <p className="muted wc-hint">
-            Ending it saves the {isPollGame ? 'results' : 'cloud'} and sends everyone back to the session automatically.
+            {activityGame
+              ? `Ending it saves the ${isPollQ ? 'results' : 'cloud'} and sends everyone back to the session automatically.`
+              : 'No right answer here, so there is nothing to reveal — scores are unchanged.'}
           </p>
         </div>
       )}
 
       {/* ── QUESTION ── */}
-      {status === 'question' && game.currentQuestion && !isActivityGame && (
+      {status === 'question' && game.currentQuestion && !isActivityQ && (
         <div className="host-section">
           <div className="question-meta">
             <span>Q{currentIdx + 1} / {questionCount}</span>
@@ -535,7 +569,7 @@ export default function Host() {
       )}
 
       {/* ── REVEAL ── */}
-      {status === 'reveal' && game.reveal && game.currentQuestion && !isActivityGame && (
+      {status === 'reveal' && game.reveal && game.currentQuestion && !isActivityQ && (
         <div className="host-section">
           <h2>{game.currentQuestion.type === 'wordcloud' ? '☁️ Results' : 'Answer Revealed'}</h2>
           {game.currentQuestion.type === 'wordcloud' ? (
@@ -562,7 +596,7 @@ export default function Host() {
       )}
 
       {/* ── SCOREBOARD ── */}
-      {status === 'scoreboard' && !isActivityGame && (
+      {status === 'scoreboard' && !activityGame && (
         <div className="host-section">
           <h2>Leaderboard</h2>
           <TeamLeaderboard players={playerList} teams={teams} showDelta />
@@ -577,12 +611,12 @@ export default function Host() {
       )}
 
       {/* ── ENDED: activities have no scores, so no podium and no confetti ── */}
-      {status === 'ended' && isActivityGame && (
+      {status === 'ended' && activityGame && (
         <div className="host-section wc-host">
-          <h2>{isPollGame ? '📊 Poll closed' : '☁️ Word cloud closed'}</h2>
+          <h2>{game.gameType === 'poll' ? '📊 Poll closed' : '☁️ Word cloud closed'}</h2>
           <p className="muted">{game.currentQuestion?.text || game.questions?.[0]?.text}</p>
           <div className="wc-stage">
-            {isPollGame ? (
+            {game.gameType === 'poll' ? (
               <div className="host-poll-graph">
                 {(game.currentQuestion?.choices || []).filter(Boolean).map((c, i) => {
                   const count = Object.values(answers).filter(a => a.choice === i).length;
@@ -614,7 +648,7 @@ export default function Host() {
       )}
 
       {/* ── ENDED ── */}
-      {status === 'ended' && !isActivityGame && (
+      {status === 'ended' && !activityGame && (
         <div className="host-section">
           <h2>🏆 Final Results</h2>
           <Podium players={playerList} />
