@@ -157,6 +157,33 @@ carry across games at all. Logged as a follow-up rather than bundled in here.
 - **2.3 / 2.4 are mitigations, not fixes** — client-computed scores can't be trusted without a
   server, and Spark offers no rate limiting.
 - **6.6** session-scoped chat/reactions.
-- **Nothing here has been verified in a browser.** All fixes are build-clean and reasoned from
-  the code, but the session flows (auto-join, rejoin, resume, cancel, team persistence) need a
-  real two-device run before trusting them.
+---
+
+## Browser verification (2026-10-05)
+
+`npm run test:e2e` drives two browser contexts (host + player, separate anonymous uids) through
+two full games in one session against the live site. **33/33 checks pass.**
+
+Confirmed working end to end: session create → player joins by code → auto-join on launch →
+answer → reveal → **scoreboard renders (0.1)** → end game → **player results page loads (0.3)**
+→ cumulative session tally (3.3) → second game loop → Resume/Cancel (1.2) →
+**score preserved across a mid-game rejoin (1.1)**. Zero `permission_denied`, zero JS errors.
+
+The run found two bugs that code review had missed:
+
+| Bug | Cause | Status |
+|---|---|---|
+| Joining by session code failed from the home page with a connection error | `Home.jsx` never called `useAuth()`, so it was unauthenticated — and Phase 2 changed `sessions` read from `true` to `auth != null`. My own regression. | DONE (`1ce7eda`) |
+| "Mixed Session" card still advertised "poll questions" after 3.2 removed the poll type | Stale copy | DONE (`984f45e`) |
+
+### Not covered by the test
+- Team persistence across games (3.4) — needs a second player to form a team with.
+- Word cloud scoring (3.1) and the player-visible cloud (6.5) — only MCQ games were played.
+- Reactions cooldown persistence (6.1) and chat rate limit (6.2).
+- Multi-device host password rejoin — not built yet.
+
+### Test data left in the live DB
+Each run creates a session plus two games, and one `globalLeaderboard` entry named
+`TEST-Player`. One such entry (1,976 pts) is currently **#1 on the public leaderboard**.
+Because of the monotonic `totalScore` guard added in 2.4, it cannot be deleted or zeroed from
+the client — remove it in the Firebase Console under `globalLeaderboard`.
