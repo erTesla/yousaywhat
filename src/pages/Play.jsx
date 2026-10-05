@@ -155,6 +155,26 @@ export default function Play() {
     return unsub;
   }, [status, pin, liveOpen]);
 
+
+  // Follow the session from inside a game: if the host starts a different game,
+  // or ends this one, move the player rather than leaving them on a dead screen.
+  useEffect(() => {
+    if (!sessionCode || !pin) return;
+    const unsub = onValue(ref(db, `sessions/${sessionCode}/currentGamePin`), snap => {
+      const next = snap.val();
+      if (next && next !== pin) {
+        sessionStorage.removeItem(`ysw_followed_${sessionCode}`);
+        navigate(`/session/play?code=${sessionCode}`, { replace: true });
+      }
+    });
+    return unsub;
+  }, [sessionCode, pin, navigate]);
+
+  function leaveSession() {
+    if (sessionCode) sessionStorage.removeItem(`ysw_followed_${sessionCode}`);
+    navigate('/');
+  }
+
   if (!user || !pin) return <Splash>Connecting…</Splash>;
 
   const myPlayer   = players[user.uid];
@@ -171,6 +191,12 @@ export default function Play() {
   );
 
   const reactionsWidget = <Reactions pin={pin} user={user} />;
+
+  const exitWidget = (
+    <button className="btn-exit" onClick={leaveSession} title="Leave and join another session">
+      ✕ Leave
+    </button>
+  );
 
   // ── LOBBY ────────────────────────────────────────────────────────────────────
   if (!status || status === 'lobby') {
@@ -193,6 +219,7 @@ export default function Play() {
         )}
         {reactionsWidget}
         {chatWidget}
+        {exitWidget}
       </div>
     );
   }
@@ -283,6 +310,7 @@ export default function Play() {
         )}
         {reactionsWidget}
         {chatWidget}
+        {exitWidget}
       </div>
     );
   }
@@ -351,6 +379,7 @@ export default function Play() {
         {!isActivity && <div className="reveal-total">Total: {myPlayer?.score || 0} pts</div>}
         {reactionsWidget}
         {chatWidget}
+        {exitWidget}
       </div>
     );
   }
@@ -364,6 +393,7 @@ export default function Play() {
         <div className="my-rank-banner">You're #{myRank}</div>
         <TeamLeaderboard players={playerList} teams={teams} highlightUid={user.uid} showDelta />
         {chatWidget}
+        {exitWidget}
       </div>
     );
   }
@@ -383,6 +413,7 @@ export default function Play() {
           <button className="btn btn-primary" onClick={() => navigate('/')}>Back to Home</button>
         )}
         {chatWidget}
+        {exitWidget}
       </div>
     );
   }
@@ -409,6 +440,7 @@ export default function Play() {
           </button>
         )}
         {chatWidget}
+        {exitWidget}
       </div>
     );
   }

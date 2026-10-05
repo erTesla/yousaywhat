@@ -61,6 +61,11 @@ export default function SessionPlay() {
     return unsub;
   }, [code, user, joinGame]);
 
+  function leaveSession() {
+    sessionStorage.removeItem(followedKey(code));
+    navigate('/');
+  }
+
   if (!code || !user) return <Splash>Connecting…</Splash>;
   if (error)          return <div className="page page-centered"><p className="error-msg">{error}</p></div>;
   if (!session)       return <Splash>Loading session…</Splash>;
@@ -111,6 +116,10 @@ export default function SessionPlay() {
           <span className="muted">{me.gamesPlayed || 0} game{me.gamesPlayed !== 1 ? 's' : ''} played</span>
         </div>
       )}
+
+      <button className="btn btn-ghost session-leave-btn" onClick={leaveSession}>
+        ✕ Leave this session
+      </button>
 
       <div className="session-lb-mini">
         <h3>Session Leaderboard</h3>

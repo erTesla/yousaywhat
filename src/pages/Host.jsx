@@ -177,9 +177,21 @@ export default function Host() {
     }
   }
 
-  // Word cloud is a single live prompt, not a scored round. Snapshot it onto
-  // the session so the dashboard can show it, with no reveal/scoreboard step.
-  function cloudSnapshot() {
+  // Activities (word cloud, poll) are a single live prompt, not a scored round:
+  // no reveal, no scoreboard. Snapshot onto the session so the dashboard shows it.
+  function activitySnapshot() {
+    const prompt = game.currentQuestion?.text || game.questions?.[0]?.text || '';
+    const type   = game.gameType === 'poll' ? 'poll' : 'wordcloud';
+
+    if (type === 'poll') {
+      const choices = game.currentQuestion?.choices || game.questions?.[0]?.choices || [];
+      const options = choices.filter(Boolean).map((label, i) => ({
+        label,
+        count: Object.values(answers).filter(a => a.choice === i).length,
+      }));
+      return { type, prompt, options, responseCount: Object.keys(answers).length, savedAt: Date.now() };
+    }
+
     const words = Object.values(answers).map(a => a.text).filter(Boolean);
     const freq  = {};
     words.forEach(w => {
@@ -187,42 +199,53 @@ export default function Host() {
       if (k) freq[k] = (freq[k] || 0) + 1;
     });
     return {
-      prompt:   game.currentQuestion?.text || game.questions?.[0]?.text || '',
-      words:    Object.entries(freq)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 60)
-                  .map(([word, count]) => ({ word, count })),
+      type,
+      prompt,
+      words: Object.entries(freq)
+               .sort((a, b) => b[1] - a[1])
+               .slice(0, 60)
+               .map(([word, count]) => ({ word, count })),
       responseCount: words.length,
-      savedAt:  Date.now(),
+      savedAt: Date.now(),
     };
   }
 
-  async function saveCloud(thenExit) {
+  async function saveActivity(thenExit) {
     if (!sessionCode) return;
     setBusy(true);
     try {
-      await set(ref(db, `sessions/${sessionCode}/clouds/${pin}`), { ...cloudSnapshot(), live: !thenExit });
+      await set(ref(db, `sessions/${sessionCode}/activities/${pin}`), { ...activitySnapshot(), live: !thenExit });
       if (thenExit) navigate(`/session/host?code=${sessionCode}&secret=${sessionSecret}`);
     } finally {
       setBusy(false);
     }
   }
 
-  async function endWordCloud() {
+  async function endActivity() {
     setBusy(true);
     try {
-      const snap = cloudSnapshot();
+      const snap = activitySnapshot();
       const endedAt = Date.now();
+      const histEntry = snap.type === 'poll'
+        ? {
+            type: 'poll',
+            text: snap.prompt,
+            choices: (game.currentQuestion?.choices || []).filter(Boolean),
+            choiceCounts: Object.fromEntries((snap.options || []).map((o, i) => [i, o.count])),
+            responseCount: snap.responseCount,
+          }
+        : {
+            type: 'wordcloud',
+            text: snap.prompt,
+            words: Object.values(answers).map(a => a.text).filter(Boolean).slice(0, 200),
+            responseCount: snap.responseCount,
+          };
+
       await update(ref(db, `games/${pin}`), {
         status: 'ended',
         'results/endedAt': endedAt,
         'results/questionCount': 1,
-        [`history/0`]: {
-          type: 'wordcloud',
-          text: snap.prompt,
-          words: Object.values(answers).map(a => a.text).filter(Boolean).slice(0, 200),
-          responseCount: snap.responseCount,
-        },
+        [`history/0`]: histEntry,
       });
 
       if (sessionCode) {
@@ -231,12 +254,12 @@ export default function Host() {
         const upd = {
           currentGamePin: null,
           status: 'between',
-          [`clouds/${pin}`]:              { ...snap, live: false },
+          [`activities/${pin}`]:          { ...snap, live: false },
           [`games/${pin}/endedAt`]:       endedAt,
           [`games/${pin}/questionCount`]: 1,
           [`games/${pin}/playerCount`]:   Object.keys(players).length,
           [`games/${pin}/kind`]:          'activity',
-          [`games/${pin}/gameType`]:      'wordcloud',
+          [`games/${pin}/gameType`]:      game.gameType || 'wordcloud',
         };
         for (const [uid, p] of Object.entries(players)) {
           const prev = prevPlayers[uid] || {};
@@ -350,6 +373,8 @@ export default function Host() {
   const playerCount  = playerList.length;
   const allAnswered  = playerCount > 0 && answerCount >= playerCount;
   const isWordCloudGame = game.gameType === 'wordcloud';
+  const isPollGame      = game.gameType === 'poll';
+  const isActivityGame  = game.kind === 'activity' || isWordCloudGame || isPollGame;
 
   return (
     <div className="page host-page">
@@ -396,8 +421,8 @@ export default function Host() {
             {playerCount === 0 && <p className="muted">Share PIN <strong>{pin}</strong> to invite players</p>}
           </div>
           <p className="muted">
-            {isWordCloudGame
-              ? '☁️ Word cloud prompt ready'
+            {isWordCloudGame ? '☁️ Word cloud prompt ready'
+              : isPollGame    ? '📊 Poll ready'
               : `${questionCount} question${questionCount !== 1 ? 's' : ''} loaded`}
           </p>
           <button
@@ -405,47 +430,68 @@ export default function Host() {
             onClick={startGame}
             disabled={playerCount === 0 || busy}
           >
-            {busy ? 'Starting…' : isWordCloudGame ? 'Open Word Cloud' : 'Start Game'}
+            {busy ? 'Starting…' : isWordCloudGame ? 'Open Word Cloud' : isPollGame ? 'Open Poll' : 'Start Game'}
           </button>
         </div>
       )}
 
-      {/* ── WORD CLOUD (own flow: no Q numbers, no reveal, no scoreboard) ── */}
-      {status === 'question' && game.currentQuestion && isWordCloudGame && (
+      {/* ── ACTIVITY (own flow: no Q numbers, no reveal, no scoreboard) ── */}
+      {status === 'question' && game.currentQuestion && isActivityGame && (
         <div className="host-section wc-host">
           <div className="wc-prompt-bar">
-            <span className="wc-chip">☁️ Live word cloud</span>
+            <span className="wc-chip">{isPollGame ? '📊 Live poll' : '☁️ Live word cloud'}</span>
             <span className="muted wc-count">
-              {answerCount} response{answerCount !== 1 ? 's' : ''} from {playerCount} player{playerCount !== 1 ? 's' : ''}
+              {answerCount} {isPollGame ? 'vote' : 'response'}{answerCount !== 1 ? 's' : ''} from {playerCount} player{playerCount !== 1 ? 's' : ''}
             </span>
           </div>
 
           <h2 className="wc-prompt">{game.currentQuestion.text}</h2>
 
           <div className="wc-stage">
-            {answerCount === 0
-              ? <p className="muted">Waiting for the first response…</p>
-              : <WordCloud answers={answers} />}
+            {answerCount === 0 ? (
+              <p className="muted">Waiting for the first {isPollGame ? 'vote' : 'response'}…</p>
+            ) : isPollGame ? (
+              <div className="host-poll-graph">
+                {(game.currentQuestion.choices || []).filter(Boolean).map((c, i) => {
+                  const count = Object.values(answers).filter(a => a.choice === i).length;
+                  const pct   = Math.round((count / (answerCount || 1)) * 100);
+                  const lead  = count > 0 && count === Math.max(
+                    ...(game.currentQuestion.choices || []).filter(Boolean)
+                      .map((_, j) => Object.values(answers).filter(a => a.choice === j).length));
+                  return (
+                    <div key={i} className={`hpg-row${lead ? ' hpg-lead' : ''}`}>
+                      <span className="hpg-label">{c}</span>
+                      <div className="hpg-track">
+                        <div className="hpg-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="hpg-val">{pct}% ({count})</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <WordCloud answers={answers} />
+            )}
           </div>
 
           <div className="wc-actions">
             {sessionCode && (
-              <button className="btn btn-ghost" onClick={() => saveCloud(true)} disabled={busy}>
+              <button className="btn btn-ghost" onClick={() => saveActivity(true)} disabled={busy}>
                 💾 Save & back to dashboard
               </button>
             )}
-            <button className="btn btn-primary" onClick={endWordCloud} disabled={busy}>
-              ⏹ End word cloud
+            <button className="btn btn-primary" onClick={endActivity} disabled={busy}>
+              ⏹ End {isPollGame ? 'poll' : 'word cloud'}
             </button>
           </div>
           <p className="muted wc-hint">
-            Ending it saves the cloud and sends everyone back to the session automatically.
+            Ending it saves the {isPollGame ? 'results' : 'cloud'} and sends everyone back to the session automatically.
           </p>
         </div>
       )}
 
       {/* ── QUESTION ── */}
-      {status === 'question' && game.currentQuestion && !isWordCloudGame && (
+      {status === 'question' && game.currentQuestion && !isActivityGame && (
         <div className="host-section">
           <div className="question-meta">
             <span>Q{currentIdx + 1} / {questionCount}</span>
@@ -489,7 +535,7 @@ export default function Host() {
       )}
 
       {/* ── REVEAL ── */}
-      {status === 'reveal' && game.reveal && game.currentQuestion && !isWordCloudGame && (
+      {status === 'reveal' && game.reveal && game.currentQuestion && !isActivityGame && (
         <div className="host-section">
           <h2>{game.currentQuestion.type === 'wordcloud' ? '☁️ Results' : 'Answer Revealed'}</h2>
           {game.currentQuestion.type === 'wordcloud' ? (
@@ -516,7 +562,7 @@ export default function Host() {
       )}
 
       {/* ── SCOREBOARD ── */}
-      {status === 'scoreboard' && !isWordCloudGame && (
+      {status === 'scoreboard' && !isActivityGame && (
         <div className="host-section">
           <h2>Leaderboard</h2>
           <TeamLeaderboard players={playerList} teams={teams} showDelta />
@@ -530,13 +576,29 @@ export default function Host() {
         </div>
       )}
 
-      {/* ── ENDED: word cloud has no scores, so no podium ── */}
-      {status === 'ended' && isWordCloudGame && (
+      {/* ── ENDED: activities have no scores, so no podium and no confetti ── */}
+      {status === 'ended' && isActivityGame && (
         <div className="host-section wc-host">
-          <h2>☁️ Word cloud closed</h2>
+          <h2>{isPollGame ? '📊 Poll closed' : '☁️ Word cloud closed'}</h2>
           <p className="muted">{game.currentQuestion?.text || game.questions?.[0]?.text}</p>
           <div className="wc-stage">
-            <WordCloud answers={answers} />
+            {isPollGame ? (
+              <div className="host-poll-graph">
+                {(game.currentQuestion?.choices || []).filter(Boolean).map((c, i) => {
+                  const count = Object.values(answers).filter(a => a.choice === i).length;
+                  const pct   = Math.round((count / (answerCount || 1)) * 100);
+                  return (
+                    <div key={i} className="hpg-row">
+                      <span className="hpg-label">{c}</span>
+                      <div className="hpg-track"><div className="hpg-fill" style={{ width: `${pct}%` }} /></div>
+                      <span className="hpg-val">{pct}% ({count})</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <WordCloud answers={answers} />
+            )}
           </div>
           {sessionCode ? (
             <button
@@ -552,7 +614,7 @@ export default function Host() {
       )}
 
       {/* ── ENDED ── */}
-      {status === 'ended' && !isWordCloudGame && (
+      {status === 'ended' && !isActivityGame && (
         <div className="host-section">
           <h2>🏆 Final Results</h2>
           <Podium players={playerList} />
