@@ -224,7 +224,8 @@ async function run() {
   const scoreBefore = parseInt(((await player.locator('.reveal-total').innerText()).match(/\d+/) || [0])[0], 10);
 
   await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
-  await player.waitForTimeout(3000);
+  // Wait for the session to actually resolve rather than asserting on "Loading…"
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   const afterNav = await player.locator('body').innerText();
   const offeredRejoin = /Rejoin Game/i.test(afterNav);
   check('1.1 returning mid-game offers Rejoin instead of auto-yanking', offeredRejoin,
