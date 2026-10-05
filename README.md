@@ -179,17 +179,33 @@ Edit `src/mock/seed.json` to pre-populate a game. The server loads this file on 
 
 ### 4 — Apply security rules
 
-1. Realtime Database → **Rules** tab
-2. Replace all content with the contents of [`database.rules.json`](./database.rules.json)
-3. **Publish**
+For the **first** deploy only, paste [`database.rules.json`](./database.rules.json) into
+Realtime Database → **Rules** → **Publish**. After that, never touch rules in the console.
+
+> ⚠️ **Rules live in `database.rules.json` only.** CI runs
+> `firebase deploy --only database` on every push to `main`, which replaces *all*
+> live rules with this file. A rule added in the console is silently deleted by the
+> next push — this is exactly how the `feedbackSessions` rules were lost once.
+> Add the rule to the file and push.
 
 What the rules enforce:
 
 - Only the host (`auth.uid === hostUid`) can control game flow
-- `hostSecret` has `.read: false` — no client can ever read it
-- Players can only write their own record (`players/$uid`) and their own answer
-- Answers are writable only while `status === "question"`
+- Players **cannot read the game node** — it contains `questions[].correct`. Every
+  player-visible field needs its own `".read": true`. Forgetting one fails silently
+- `hostSecret` is readable only by the host, because `games/$pin` itself is host-only.
+  The nested `".read": false` is **inert**: RTDB read grants cascade downward and a
+  child rule cannot revoke a parent's grant
+- Host passwords are stored as a salted SHA-256 hash under `sessionAuth/`, which no
+  client can read. The rules compare against it, so a successful *write* is the
+  authentication
+- Players can write only their own name/team and their own answer, and may delete
+  their own session record in order to leave. Scores are host-written
+- Answers are writable only while `status === "question"`, and readable at reveal or
+  during a live poll / word cloud
 - Tamper attempts are logged to `tamperLog`, readable only by the host
+
+The file itself is commented with these invariants — read the header before editing it.
 
 ### 5 — Get your Firebase config
 
@@ -280,6 +296,14 @@ firebase deploy --only database
 | `npm run dev:mock` | Dev server + local WebSocket mock server — no Firebase needed |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview the production build locally |
+| `npm run lint` | ESLint over the project |
+| `npm run test:e2e` | End-to-end suite — see the warning below |
+
+> ⚠️ `npm run test:e2e` drives two real browsers against the **live deployed site** and
+> **writes real data**: a session, several games, and a `globalLeaderboard` entry named
+> `TEST-Player`. The monotonic score rule means that entry cannot be removed by the
+> app — delete it in the Firebase console if it clutters the leaderboard. Point it
+> somewhere else with `BASE=http://localhost:5173 npm run test:e2e`.
 
 ---
 
@@ -375,19 +399,26 @@ Lobby: display PIN ──────────────────  /join
   └─ repeat or status → "ended" ──────  Final results
 ```
 
+Activities (poll, word cloud) skip the reveal and scoreboard steps entirely: the host
+sees a live graph or cloud and ends it directly. The host can also end any game at any
+point from the topbar. See `FIXLOG.md` for the full behaviour of sessions, activities,
+teams and saved games.
+
 ---
 
 ## Security model
 
 | Threat | Mitigation |
 |---|---|
-| Guessing the host URL | Host URL contains a 256-bit random secret — 2²⁵⁶ possible values |
-| Reading the secret from the DB | `hostSecret` field has `.read: false` in DB rules |
+| Guessing the host URL | Authorization is by `hostUid` (anonymous auth), not by the URL secret, which is only a bookmark token. Losing the tab is recovered with the host password |
+| Enumerating sessions | **Only partly mitigated.** Reads require auth, and the code space is ~540k, but anonymous auth is free and Spark offers no rate limiting. Do not put anything sensitive in a session |
+| Reading the secret from the DB | `games/$pin` is host-only readable. (The nested `.read: false` on `hostSecret` is inert — read grants cascade and a child cannot revoke a parent's.) |
 | Impersonating the host | All host writes require `auth.uid === hostUid` enforced by DB rules |
 | Tamper attempts | Logged to `tamperLog` with UID, timestamp, and user agent; host sees real-time alerts |
 | Submitting answers out of turn | `answers/$uid` is only writable when `status === "question"` |
 | Faking another player's answer | `answers/$uid` write requires `auth.uid === $uid` |
-| Manipulating scores | Scores are calculated and written exclusively by the host client |
+| Manipulating scores (in-game) | Per-game scores are written exclusively by the host client; `players/$uid` gives players no score grant |
+| Manipulating scores (leaderboards) | **Only partly mitigated.** `globalLeaderboard/$uid` is self-written, so a player can submit an inflated total. A monotonic guard stops it decreasing and `.validate` constrains the type, but scores are computed client-side and cannot be trusted without a server — which the Spark tier rules out. Session totals are safer: they are host-written |
 
 ---
 
@@ -398,7 +429,6 @@ Contributions are welcome. Some ideas if you want to help:
 - **Image/media questions** — attach a photo to a question
 - **Question import** — CSV or JSON bulk upload
 - **Custom themes** — colour schemes beyond the default dark mode
-- **Team mode** — group players into teams with a shared score
 - **Answer streaks** — bonus points for consecutive correct answers
 - **QR code** — show a QR code on the lobby screen to make joining easier
 
