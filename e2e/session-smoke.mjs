@@ -437,6 +437,70 @@ async function run() {
   await pollHost.close();
   delete globalThis.__pages.pollHost;
 
+
+  // ───────────────────────────── 8e. Leaving removes the player from the session
+  log('\n[8e] Leaving removes the player');
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+
+  const beforeDash = await hostCtx.newPage();
+  await beforeDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await beforeDash.locator('.session-lb-card').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  await beforeDash.waitForTimeout(1500);
+  const rosterBefore = await beforeDash.locator('.session-lb-card').innerText();
+  check('player is on the roster before leaving', /TEST-Player/.test(rosterBefore));
+
+  // leave is two-step: ask, then confirm
+  await player.getByRole('button', { name: /Leave this session/i }).click();
+  await player.locator('.leave-confirm').waitFor({ state: 'visible', timeout: 15000 });
+  check('leaving asks for confirmation first',
+        /score here is deleted/i.test(await player.locator('.leave-confirm').innerText()));
+  await player.getByRole('button', { name: /Stay/i }).click();
+  await player.waitForTimeout(800);
+  check('Stay cancels the leave',
+        await player.getByRole('button', { name: /Leave this session/i }).count() > 0);
+
+  await player.getByRole('button', { name: /Leave this session/i }).click();
+  await player.getByRole('button', { name: /Yes, leave/i }).click();
+  await player.waitForURL(u => !/\/session\//.test(u.toString()), { timeout: 25000 }).catch(() => {});
+  await player.waitForTimeout(3000);
+  check('player lands back on home after leaving', !/\/session\//.test(player.url()), player.url().replace(BASE, '') || '/');
+
+  await beforeDash.waitForTimeout(3500);
+  const rosterAfter = await beforeDash.locator('.session-lb-card').innerText();
+  check('player is removed from the session roster',
+        !/TEST-Player/.test(rosterAfter), rosterAfter.replace(/\n+/g, ' | ').slice(0, 80));
+  const headerAfter = await beforeDash.locator('.session-host-meta').innerText();
+  check('host player count drops after the player leaves',
+        /0 players/i.test(headerAfter), headerAfter.replace(/\n+/g, ' | '));
+
+  // the delete-only grant must not have opened up score forgery
+  const forge = await player.evaluate(async (sessionCode) => {
+    const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js');
+    const { getAuth } = await import('https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js');
+    try {
+      const db = getDatabase();
+      const uid = getAuth().currentUser?.uid;
+      if (!uid) return 'no-uid';
+      await set(ref(db, `sessions/${sessionCode}/players/${uid}/totalScore`), 999999);
+      return 'WROTE';
+    } catch (e) {
+      return 'denied:' + (e?.code || e?.message || 'unknown');
+    }
+  }, code).catch(e => 'probe-failed:' + e.message.slice(0, 40));
+  check('players still cannot forge a session score after the delete grant',
+        !String(forge).startsWith('WROTE'), String(forge).slice(0, 60));
+
+  await beforeDash.close();
+
+  // put the player back so later legs still have someone in the session
+  await player.goto(`${BASE}/session/join?code=${code}`, { waitUntil: 'networkidle' });
+  await player.waitForTimeout(2000);
+  await player.getByPlaceholder(/Your name/i).fill('TEST-Player');
+  await player.getByRole('button', { name: /Join Session/i }).click();
+  await player.waitForURL(/\/session\/play/, { timeout: 25000 });
+  check('player can rejoin the session after leaving', true);
+
   // ───────────────────────────── 9. Host rejoin from a different "device"
   log('\n[9] Host password rejoin from a fresh device');
   const newDeviceCtx = await browser.newContext();   // fresh storage => new anon uid
