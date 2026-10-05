@@ -72,8 +72,10 @@ export default function Host() {
     if (!verified || !pin) return;
 
     const base = `games/${pin}`;
+    // `history` is not rendered, but endGame() reads it to build results/summary.
+    // Leaving it out silently produced an empty per-question breakdown.
     const fields = ['status', 'currentQuestion', 'reveal', 'players', 'answers',
-                    'questions', 'gameType', 'kind', 'chatEnabled'];
+                    'questions', 'gameType', 'kind', 'chatEnabled', 'history'];
 
     const unsubs = fields.map(field =>
       onValue(ref(db, `${base}/${field}`), snap => {

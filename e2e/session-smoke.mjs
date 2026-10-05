@@ -146,8 +146,10 @@ async function run() {
   check('6.x player sees Back to Session (not Play Again)', await player.getByRole('button', { name: /Back to Session/i }).isVisible());
 
   // 0.3 player results page
+  const rPin    = new URL(host.url()).searchParams.get('pin');
+  const rSecret = new URL(host.url()).searchParams.get('secret');
   const resPage = await playerCtx.newPage();
-  await resPage.goto(`${BASE}/results?pin=${new URL(host.url()).searchParams.get('pin')}`, { waitUntil: 'domcontentloaded' });
+  await resPage.goto(`${BASE}/results?pin=${rPin}`, { waitUntil: 'domcontentloaded' });
   // Assert real content rendered, not just the absence of an error while loading
   await resPage.locator('.score-row, .results-section').first()
     .waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
@@ -156,6 +158,19 @@ async function run() {
         !/Could not load/i.test(resTxt) && /TEST-Player/.test(resTxt),
         resTxt.replace(/\n+/g, ' | ').slice(0, 90));
   await resPage.close();
+
+  // The HOST view must also render the per-question breakdown. Asserting only
+  // that the page loads let a regression through: dropping `history` from the
+  // host's field listeners made results/summary empty and the breakdown vanish.
+  const hostRes = await hostCtx.newPage();
+  await hostRes.goto(`${BASE}/results?pin=${rPin}&secret=${rSecret}`, { waitUntil: 'domcontentloaded' });
+  await hostRes.locator('.qb-card').first().waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  const hostResTxt = await hostRes.locator('body').innerText();
+  const qbBars = await hostRes.locator('.qb-bar-row').count();
+  check('host results show the per-question breakdown',
+        /Question Breakdown/i.test(hostResTxt) && qbBars > 0,
+        `cards=${await hostRes.locator('.qb-card').count()} bars=${qbBars}`);
+  await hostRes.close();
 
   // back to dashboard, confirm cumulative score landed
   await host.getByRole('button', { name: /Back to Session/i }).click();
