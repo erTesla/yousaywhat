@@ -167,9 +167,9 @@ async function run() {
   check('session past-games list records the game', /Games Played \(1\)/.test(gamesTxt), gamesTxt.split('\n')[0]);
   check('5.7 past game row is a link to results', await host.locator('a.session-game-row').count() > 0);
 
-  // player returns to waiting room
-  await player.getByRole('button', { name: /Back to Session/i }).click();
-  await player.waitForURL(/\/session\/play/, { timeout: 20000 });
+  // player returns to the waiting room on its own now (auto-return on game end)
+  await player.waitForURL(/\/session\/play/, { timeout: 30000 });
+  check('player auto-returns to the lobby when the game ends', true);
   await player.waitForTimeout(2000);
   const sp = await player.locator('body').innerText();
   check('player back in waiting room with session total', /Your total/i.test(sp), (sp.match(/Your total[^\n]*/) || [''])[0]);
