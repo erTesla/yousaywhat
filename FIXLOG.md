@@ -294,6 +294,56 @@ has not been empirically confirmed.
 
 ---
 
+## Round 5 — activity gating by question type, end-game control (2026-10-05)
+
+| # | Request | Status |
+|---|---------|--------|
+| Q1 | Poll host screen still showed Reveal Answer | DONE |
+| Q2 | Check word cloud for the same issue | DONE |
+| Q3 | Host needs an option to end the game at any point | DONE |
+| Q4 | When the host ends, players return to the lobby | DONE |
+
+**Q1/Q2 — the gating bug.** The activity UI was keyed on the **game's** type, so
+it only applied when the host picked the Poll or Word Cloud card. Switching a
+question to poll or word cloud with the editor dropdown left `gameType` as
+`'quiz'`, so the host got the whole quiz flow — Reveal Answer, correct/wrong,
+scoreboard — for a question with no correct answer.
+
+Gating now keys off the question on screen:
+- A poll or word cloud question gets the live graph/cloud and never a reveal,
+  whatever game surrounds it.
+- A standalone activity game keeps End + Save to dashboard.
+- An activity question inside a scored game advances with Next Question / End
+  Game, recording responses via the extracted `questionHistory()` helper so
+  per-question results stay correct without a reveal.
+- A scored question in the same game still offers Reveal Answer — verified.
+
+**Q3 — End control.** The host topbar now carries a two-step End available from
+the lobby, mid-question, at reveal and at the scoreboard, routing to
+`endActivity` or `endGame` as appropriate. Previously End Game was reachable only
+from the final scoreboard, so a host mid-quiz had no way out.
+
+**Q4 — players return to the lobby.** On a session game ending, players see their
+result for 6 seconds with a visible countdown, then land back in the session
+lobby automatically. The Back to Session button still skips the wait. Standalone
+games are unchanged — there is no lobby to return to. *The 6-second pause is a
+judgement call: returning instantly would mean nobody ever sees the podium.*
+
+### Verification
+`npm run test:e2e` — **102/102**. New coverage: poll via the editor dropdown,
+word cloud via Add Word Cloud inside a 2-question quiz (asserting the scored
+question still reveals while the activity one does not), End from the lobby and
+mid-question with its confirm and cancel, and the player's countdown and
+automatic return.
+
+**Process note:** this bug shipped because my poll test only exercised the
+dedicated Poll card — the path I had just built — rather than the editor dropdown
+a user would reach for. Three bugs this session have now been found by running
+the app rather than reading it. Prefer covering the user's route, not the
+implementer's.
+
+---
+
 ## Remaining / deferred
 
 - **Host password + lost-URL rejoin (from the approved design) is still not built.** Recovery is
