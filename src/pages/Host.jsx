@@ -7,7 +7,6 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { calcPoints } from '../utils/game';
 import Timer from '../components/Timer';
-import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
 import Reactions from '../components/Reactions';

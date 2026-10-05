@@ -8,7 +8,7 @@ function genTeamCode() {
 
 // basePath is `sessions/{code}` inside a session (so teams survive between
 // games) or `games/{pin}` for a one-off game.
-export default function TeamLobby({ basePath, user, playerName, teams, myTeamCode }) {
+export default function TeamLobby({ basePath, user, teams, myTeamCode }) {
   const [joinCode, setJoinCode]   = useState('');
   const [teamName, setTeamName]   = useState('');
   const [error, setError]         = useState('');

@@ -4,7 +4,6 @@ import { ref, onValue, set, get, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import Timer from '../components/Timer';
-import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
 import Reactions from '../components/Reactions';
@@ -134,11 +133,13 @@ export default function Play() {
 
   // Word cloud results: answers only become readable once status is 'reveal'
   useEffect(() => {
-    if (status !== 'reveal' || !pin) { setRevealAnswers({}); return; }
+    if (status !== 'reveal' || !pin) return;
+    // onValue fires immediately with current data, and the host clears answers
+    // on each new question, so there's no stale-flash to guard against here.
     const unsub = onValue(
       ref(db, `games/${pin}/answers`),
       snap => setRevealAnswers(snap.val() || {}),
-      () => setRevealAnswers({}),
+      () => {},
     );
     return unsub;
   }, [status, pin]);
@@ -174,7 +175,6 @@ export default function Play() {
         <TeamLobby
           basePath={teamBase}
           user={user}
-          playerName={myPlayer?.name}
           teams={teams}
           myTeamCode={sessionCode ? myTeamCode : myPlayer?.teamCode}
         />

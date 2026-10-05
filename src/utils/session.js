@@ -20,3 +20,15 @@ export function generateSessionCode() {
 export function isSessionCode(input) {
   return /^[A-Za-z]{2,10}-\d{4}$/.test(input.trim());
 }
+
+export const MIN_PASSWORD_LEN = 4;
+
+// Salted with the session code so the same password on two sessions produces
+// different hashes. The hash is never readable by clients — it lives under
+// sessionAuth/, and the DB rules compare against it so a host can prove
+// knowledge of the password without anyone being able to read or replay it.
+export async function hashPassword(code, password) {
+  const data = new TextEncoder().encode(`${code}:${password}`);
+  const buf  = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}

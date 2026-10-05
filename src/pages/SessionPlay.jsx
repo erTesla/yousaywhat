@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ref, get, set, onValue } from 'firebase/database';
 import { db } from '../firebase';
@@ -23,7 +23,7 @@ export default function SessionPlay() {
   const [rejoinPin, setRejoinPin] = useState(null);
 
   // Joins the game without clobbering an existing player record.
-  async function joinGame(pin, playerName) {
+  const joinGame = useCallback(async (pin, playerName) => {
     setJoining(true);
     try {
       const statusSnap = await get(ref(db, `games/${pin}/status`));
@@ -40,7 +40,7 @@ export default function SessionPlay() {
     } catch {
       setJoining(false);
     }
-  }
+  }, [code, user, navigate]);
 
   useEffect(() => {
     if (!code || !user) return;
@@ -59,7 +59,7 @@ export default function SessionPlay() {
       }
     });
     return unsub;
-  }, [code, user, navigate]);
+  }, [code, user, joinGame]);
 
   if (!code || !user) return <Splash>Connecting…</Splash>;
   if (error)          return <div className="page page-centered"><p className="error-msg">{error}</p></div>;

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ref, get, query, orderByChild, limitToLast, onValue } from 'firebase/database';
 import { db } from '../firebase';
+import { useAuth } from '../hooks/useAuth';
 import { isSessionCode } from '../utils/session';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -11,6 +12,9 @@ export default function Home() {
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  // Reading a session node requires auth, so sign in on landing rather than
+  // only on the pages that write.
+  const user = useAuth();
 
   async function handleJoin(e) {
     e.preventDefault();
@@ -19,6 +23,7 @@ export default function Home() {
 
     if (isSessionCode(trimmed)) {
       // Session code (e.g. WOLF-4821) → join session
+      if (!user) { setError('Still connecting — try again in a moment'); return; }
       setLoading(true);
       try {
         const snap = await get(ref(db, `sessions/${trimmed}/status`));
