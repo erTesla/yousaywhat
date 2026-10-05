@@ -125,6 +125,10 @@
           ".read": true
         },
 
+        "kind": {
+          ".read": true
+        },
+
         "reactions": {
           ".read": true,
           "$uid": {
