@@ -202,6 +202,47 @@ label assertion raced the picker's auth-gated render.
 
 ---
 
+## Round 3 — word cloud as its own flow (2026-10-05)
+
+| # | Request | Status |
+|---|---------|--------|
+| W1 | No Reveal Answer button on a word cloud | DONE |
+| W2 | Word cloud UI separate from the others; no question number | DONE |
+| W3 | Only "save word cloud and go back to dashboard" | DONE |
+| W4 | Current/saved cloud visible on the dashboard in a small view | DONE |
+| W5 | Option to end the word cloud so player navigation is smooth | DONE |
+
+A word cloud was running on the quiz's numbered-question → reveal → scoreboard
+path. Now it has its own screen: the prompt large above a live cloud stage with a
+running response count, no Q numbering, and no reveal or scoreboard step at all.
+Two actions replace them — **Save & back to dashboard** (snapshots, leaves it
+running, marked `live` on the dashboard) and **End word cloud** (snapshots, closes
+it, releases players back to the session automatically).
+
+Setup treats a word cloud as a single prompt: no numbering, no type dropdown, no
+add-question buttons, prompt-style placeholder, and the launch button reads
+"Open Word Cloud".
+
+The dashboard gained a **Word Clouds** panel of small previews with word size
+scaled by frequency; live clouds are badged and keep updating.
+
+Players can now watch the cloud build after submitting (answers are readable while
+a word cloud is live — there is no correct answer to leak) and get a plain
+thank-you end screen with no scores.
+
+**Bug caught by the test run:** players cannot read the game node, so every field
+they need has its own public read rule — and `kind` was missing. The listener was
+denied and defaulted to `'quiz'`, so a finished word cloud showed players the quiz
+end screen ("You Won! 0 pts"). Host side and session tally were already correct,
+which is exactly why it was invisible without a browser.
+
+### Verification
+`npm run test:e2e` — **57/57 passing**, now covering the single-prompt setup, the
+absence of a reveal button, the save/end actions, the live response count, the
+player activity end screen, and the dashboard mini cloud.
+
+---
+
 ## Remaining / deferred
 
 - **Host password + lost-URL rejoin (from the approved design) is still not built.** Recovery is
