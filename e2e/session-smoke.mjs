@@ -47,7 +47,7 @@ async function run() {
 
   // ───────────────────────────── 1. Host creates a session
   log('\n[1] Host creates session');
-  await host.goto(BASE, { waitUntil: 'networkidle' });
+  await host.goto(BASE, { waitUntil: 'domcontentloaded' });
   await host.getByRole('button', { name: /Start a Session/i }).click();
   await host.getByPlaceholder(/Session name/i).fill(SESSION_NAME);
   await host.getByPlaceholder(/Host password/i).fill(HOST_PASSWORD);
@@ -62,7 +62,7 @@ async function run() {
 
   // ───────────────────────────── 2. Player joins by session code
   log('\n[2] Player joins by session code');
-  await player.goto(BASE, { waitUntil: 'networkidle' });
+  await player.goto(BASE, { waitUntil: 'domcontentloaded' });
   await player.waitForTimeout(2500);   // let anonymous sign-in settle
   await player.locator('.pin-input').fill(code);
   await player.getByRole('button', { name: /^Join$/ }).click();
@@ -147,7 +147,7 @@ async function run() {
 
   // 0.3 player results page
   const resPage = await playerCtx.newPage();
-  await resPage.goto(`${BASE}/results?pin=${new URL(host.url()).searchParams.get('pin')}`, { waitUntil: 'networkidle' });
+  await resPage.goto(`${BASE}/results?pin=${new URL(host.url()).searchParams.get('pin')}`, { waitUntil: 'domcontentloaded' });
   // Assert real content rendered, not just the absence of an error while loading
   await resPage.locator('.score-row, .results-section').first()
     .waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
@@ -193,7 +193,7 @@ async function run() {
 
   // 1.2 Resume/Cancel while a game is live
   const dash = await hostCtx.newPage();
-  await dash.goto(host.url().replace(/\/host\?.*$/, `/session/host?code=${code}&secret=x`), { waitUntil: 'networkidle' });
+  await dash.goto(host.url().replace(/\/host\?.*$/, `/session/host?code=${code}&secret=x`), { waitUntil: 'domcontentloaded' });
   // Wait for the live-game banner rather than a fixed sleep — the dashboard has
   // to auth, verify host, then attach the session listener before it appears.
   const banner = dash.locator('.session-active-banner');
@@ -223,7 +223,7 @@ async function run() {
   await player.waitForSelector('.reveal-banner', { timeout: 20000 });
   const scoreBefore = parseInt(((await player.locator('.reveal-total').innerText()).match(/\d+/) || [0])[0], 10);
 
-  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'domcontentloaded' });
   // Wait for the session to actually resolve rather than asserting on "Loading…"
   await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   const afterNav = await player.locator('body').innerText();
@@ -244,7 +244,7 @@ async function run() {
   log('\n[8b] Team mode gating and saved games');
   const d3 = await hostCtx.newPage();
   globalThis.__pages.d3 = d3;
-  await d3.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await d3.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await d3.locator('.session-teams-bar').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   check('team mode toggle present and OFF by default',
         (await d3.locator('.toggle-btn').innerText()).includes('OFF'));
@@ -283,12 +283,12 @@ async function run() {
   await host.getByRole('button', { name: /Show Scoreboard/i }).click({ timeout: 25000 }).catch(() => {});
   await host.getByRole('button', { name: /End Game/i }).click({ timeout: 25000 }).catch(() => {});
   await host.waitForTimeout(4000);
-  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'domcontentloaded' });
   await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
 
   const wcHost = await hostCtx.newPage();
   globalThis.__pages.wcHost = wcHost;
-  await wcHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await wcHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await wcHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
   await wcHost.getByRole('button', { name: /Start New Game/i }).click();
   await wcHost.waitForURL(/\/create\?/, { timeout: 20000 });
@@ -356,7 +356,7 @@ async function run() {
 
   // dashboard mini view
   const wcDash = await hostCtx.newPage();
-  await wcDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await wcDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await wcDash.locator('.session-clouds-card').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   const cloudTxt = await wcDash.locator('.session-clouds-card').innerText().catch(() => '');
   check('saved cloud appears on the dashboard in a small view',
@@ -369,14 +369,14 @@ async function run() {
 
   // ───────────────────────────── 8d. Poll flow, follow-on-start, exit, emoji strip
   log('\n[8d] Poll flow / global follow / exit / emoji strip');
-  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'domcontentloaded' });
   await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   check('player can leave the session from the waiting room',
         await player.getByRole('button', { name: /Leave this session/i }).count() > 0);
 
   const pollHost = await hostCtx.newPage();
   globalThis.__pages.pollHost = pollHost;
-  await pollHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await pollHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await pollHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
   await pollHost.getByRole('button', { name: /Start New Game/i }).click();
   await pollHost.waitForURL(/\/create\?/, { timeout: 20000 });
@@ -438,7 +438,7 @@ async function run() {
         !/You Won/i.test(afterPoll), afterPoll.replace(/\n+/g, ' | ').slice(0, 70));
 
   const pollDash = await hostCtx.newPage();
-  await pollDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await pollDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await pollDash.locator('.session-clouds-card').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   const actTxt = await pollDash.locator('.session-clouds-card').innerText().catch(() => '');
   check('dashboard shows both the cloud and the poll result',
@@ -451,11 +451,11 @@ async function run() {
 
   // ───────────────────────────── 8e. Leaving removes the player from the session
   log('\n[8e] Leaving removes the player');
-  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'domcontentloaded' });
   await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
 
   const beforeDash = await hostCtx.newPage();
-  await beforeDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await beforeDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await beforeDash.locator('.session-lb-card').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
   await beforeDash.waitForTimeout(1500);
   const rosterBefore = await beforeDash.locator('.session-lb-card').innerText();
@@ -494,7 +494,7 @@ async function run() {
   await beforeDash.close();
 
   // put the player back so later legs still have someone in the session
-  await player.goto(`${BASE}/session/join?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/join?code=${code}`, { waitUntil: 'domcontentloaded' });
   await player.waitForTimeout(2000);
   await player.getByPlaceholder(/Your name/i).fill('TEST-Player');
   await player.getByRole('button', { name: /Join Session/i }).click();
@@ -506,12 +506,12 @@ async function run() {
   // This is the case that shipped broken: the activity UI was gated on the
   // game's type, so a poll set via the editor dropdown still showed Reveal Answer.
   log('\n[8f] Poll question inside a quiz game');
-  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'domcontentloaded' });
   await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
 
   const mixHost = await hostCtx.newPage();
   globalThis.__pages.mixHost = mixHost;
-  await mixHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await mixHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await mixHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
   await mixHost.getByRole('button', { name: /Start New Game/i }).click();
   await mixHost.waitForURL(/\/create\?/, { timeout: 20000 });
@@ -565,12 +565,12 @@ async function run() {
   // too, and that a mixed game transitions from a scored question into an
   // activity question without a reveal step.
   log('\n[8g] Word cloud question inside a quiz game');
-  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'domcontentloaded' });
   await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
 
   const wqHost = await hostCtx.newPage();
   globalThis.__pages.wqHost = wqHost;
-  await wqHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await wqHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await wqHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
   await wqHost.getByRole('button', { name: /Start New Game/i }).click();
   await wqHost.waitForURL(/\/create\?/, { timeout: 20000 });
@@ -643,12 +643,12 @@ async function run() {
 
   // ───────────────────────────── 8h. Host can end mid-game; players return to lobby
   log('\n[8h] End game at any point / players bounce to lobby');
-  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'domcontentloaded' });
   await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
 
   const endHost = await hostCtx.newPage();
   globalThis.__pages.endHost = endHost;
-  await endHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await endHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'domcontentloaded' });
   await endHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
   await endHost.getByRole('button', { name: /Start New Game/i }).click();
   await endHost.waitForURL(/\/create\?/, { timeout: 20000 });
@@ -718,7 +718,7 @@ async function run() {
   globalThis.__pages.dev2 = dev2;
 
   // A stranger with the code but no password must be refused
-  await dev2.goto(`${BASE}/session/rejoin?code=${code}`, { waitUntil: 'networkidle' });
+  await dev2.goto(`${BASE}/session/rejoin?code=${code}`, { waitUntil: 'domcontentloaded' });
   // the submit stays disabled until anonymous auth resolves
   await dev2.getByRole('button', { name: /Rejoin Session/i }).waitFor({ state: 'visible', timeout: 25000 });
   await dev2.waitForFunction(() => {
