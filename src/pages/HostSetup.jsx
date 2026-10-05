@@ -13,6 +13,14 @@ const BLANK_Q = () => ({
   timeLimit: 20,
 });
 
+const BLANK_POLL = () => ({
+  text: '',
+  type: 'poll',
+  choices: ['', '', '', ''],
+  correct: null,
+  timeLimit: 30,
+});
+
 const BLANK_WC = () => ({
   text: '',
   type: 'wordcloud',
@@ -83,7 +91,9 @@ export default function HostSetup() {
   const sessionCode    = params.get('sessionCode')?.toUpperCase();
   const sessionSecret  = params.get('sessionSecret');
 
-  const defaultQ = gameType === 'wordcloud' ? BLANK_WC() : BLANK_Q();
+  const defaultQ = gameType === 'wordcloud' ? BLANK_WC()
+    : gameType === 'poll'    ? BLANK_POLL()
+    : BLANK_Q();
 
   const [questions, setQuestions] = useState([defaultQ]);
   // Only relevant for one-off games; inside a session the host toggles team
@@ -155,8 +165,13 @@ export default function HostSetup() {
       const q = questions[i];
       if (!q.text.trim()) return `Q${i + 1}: question text is required`;
       if (q.type !== 'wordcloud') {
-        for (let j = 0; j < 4; j++) {
-          if (!q.choices[j].trim()) return `Q${i + 1}: answer ${LABELS[j]} is empty`;
+        const filled = q.choices.filter(c => c.trim()).length;
+        if (q.type === 'poll') {
+          if (filled < 2) return `Q${i + 1}: a poll needs at least 2 options`;
+        } else {
+          for (let j = 0; j < 4; j++) {
+            if (!q.choices[j].trim()) return `Q${i + 1}: answer ${LABELS[j]} is empty`;
+          }
         }
       }
     }
@@ -175,7 +190,7 @@ export default function HostSetup() {
       text:      q.text.trim(),
       type:      q.type || 'mcq',
       choices:   q.type === 'wordcloud' ? [] : q.choices.map(c => c.trim()),
-      correct:   q.type === 'wordcloud' ? null : q.correct,
+      correct:   (q.type === 'wordcloud' || q.type === 'poll') ? null : q.correct,
       timeLimit: Number(q.timeLimit),
     }));
 
@@ -262,11 +277,15 @@ export default function HostSetup() {
                   const t = e.target.value;
                   updateQ(qi, 'type', t);
                   if (t === 'wordcloud') { updateQ(qi, 'choices', []); updateQ(qi, 'correct', null); }
-                  else if (!q.choices.length) updateQ(qi, 'choices', ['', '', '', '']);
+                  else {
+                    if (!q.choices.length) updateQ(qi, 'choices', ['', '', '', '']);
+                    if (t === 'poll') updateQ(qi, 'correct', null);
+                  }
                 }}
                 className="time-select"
               >
                 <option value="mcq">Multiple choice</option>
+                <option value="poll">Poll / vote</option>
                 <option value="wordcloud">Word cloud</option>
               </select>
               <select
@@ -303,19 +322,24 @@ export default function HostSetup() {
               <div className="choices-grid">
                 {(q.choices.length ? q.choices : ['', '', '', '']).map((c, ci) => (
                   <div key={ci} className={`choice-wrap choice-color-${ci}`}>
-                    <label className="correct-radio" title="Mark as correct">
-                      <input
-                        type="radio"
-                        name={`correct-${qi}`}
-                        checked={q.correct === ci}
-                        onChange={() => updateQ(qi, 'correct', ci)}
-                      />
-                      <span className="choice-lbl">{LABELS[ci]}</span>
-                    </label>
+                    {q.type === 'poll' ? (
+                      // A poll has no right answer, so no correct-answer radio
+                      <span className="choice-lbl choice-lbl-static">{LABELS[ci]}</span>
+                    ) : (
+                      <label className="correct-radio" title="Mark as correct">
+                        <input
+                          type="radio"
+                          name={`correct-${qi}`}
+                          checked={q.correct === ci}
+                          onChange={() => updateQ(qi, 'correct', ci)}
+                        />
+                        <span className="choice-lbl">{LABELS[ci]}</span>
+                      </label>
+                    )}
                     <input
                       className="text-input"
                       type="text"
-                      placeholder={`Answer ${LABELS[ci]}`}
+                      placeholder={q.type === 'poll' ? `Option ${LABELS[ci]}${ci > 1 ? ' (optional)' : ''}` : `Answer ${LABELS[ci]}`}
                       value={c}
                       onChange={e => updateChoice(qi, ci, e.target.value)}
                     />
@@ -349,6 +373,9 @@ export default function HostSetup() {
       <div className="setup-footer">
         <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_Q()])}>
           + Add Question
+        </button>
+        <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_POLL()])}>
+          📊 Add Poll
         </button>
         <button className="btn btn-ghost" onClick={() => setQuestions(qs => [...qs, BLANK_WC()])}>
           ☁️ Add Word Cloud

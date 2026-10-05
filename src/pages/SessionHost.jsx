@@ -202,11 +202,16 @@ export default function SessionHost() {
             <p className="muted">No players yet.</p>
           ) : (
             <div className="mini-lb-list">
-              {leaderboard.map(({ uid, name, totalScore, gamesPlayed }, i) => (
+              {leaderboard.map(({ uid, name, totalScore, gamesPlayed, activitiesJoined }, i) => (
                 <div key={uid} className={['score-row', i < 3 ? `rank-${i + 1}` : ''].filter(Boolean).join(' ')}
                   style={{ animationDelay: `${i * 40}ms` }}>
                   <span className="score-rank">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>
-                  <span className="score-name">{name}</span>
+                  <span className="score-name">
+                    {name}
+                    {activitiesJoined > 0 && (
+                      <span className="lb-activities"> · {activitiesJoined} activit{activitiesJoined === 1 ? 'y' : 'ies'}</span>
+                    )}
+                  </span>
                   <span className="gl-games">{gamesPlayed || 0}g</span>
                   <span className="score-pts">{(totalScore || 0).toLocaleString()}</span>
                 </div>
@@ -221,7 +226,7 @@ export default function SessionHost() {
             <p className="muted">No games yet — start one below!</p>
           ) : (
             <div className="session-games-list">
-              {pastGames.map(({ pin, endedAt, questionCount, winnerName, winnerScore, playerCount }) => (
+              {pastGames.map(({ pin, endedAt, questionCount, winnerName, winnerScore, playerCount, kind, gameType }) => (
                 <a
                   key={pin}
                   className="session-game-row"
@@ -230,11 +235,18 @@ export default function SessionHost() {
                   rel="noreferrer"
                 >
                   <div className="sgr-left">
+                    <span className={`sgr-kind${kind === 'activity' ? ' sgr-kind-activity' : ''}`}>
+                      {kind === 'activity'
+                        ? (gameType === 'poll' ? '📊 Poll' : '☁️ Word Cloud')
+                        : '🧠 Quiz'}
+                    </span>
                     <span className="sgr-date">{endedAt ? new Date(endedAt).toLocaleDateString() : '—'}</span>
                     <span className="sgr-pin">PIN {pin}</span>
                   </div>
                   <div className="sgr-right">
-                    {questionCount}q · {playerCount || 0}p · 🏆 {winnerName || '—'} ({winnerScore || 0})
+                    {kind === 'activity'
+                      ? `${questionCount}q · ${playerCount || 0} took part`
+                      : `${questionCount}q · ${playerCount || 0}p · 🏆 ${winnerName || '—'} (${winnerScore || 0})`}
                   </div>
                 </a>
               ))}

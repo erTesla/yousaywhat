@@ -32,6 +32,7 @@ export default function Play() {
   const [teams,           setTeams]           = useState({});
   const [myTeamCode,      setMyTeamCode]      = useState(null);
   const [teamMode,        setTeamMode]        = useState(false);
+  const [gameKind,        setGameKind]        = useState('quiz');
   const [revealAnswers,   setRevealAnswers]   = useState({});
   const prevQIdx       = useRef(-1);
   const prevPoints     = useRef(0);
@@ -63,6 +64,7 @@ export default function Play() {
     const unsubReveal   = onValue(ref(db, `games/${pin}/reveal`),       snap => setReveal(snap.val()));
     const unsubPlayers  = onValue(ref(db, `games/${pin}/players`),      snap => setPlayers(snap.val() || {}));
     const unsubChat     = onValue(ref(db, `games/${pin}/chatEnabled`),  snap => setChatEnabled(snap.val() !== false));
+    const unsubKind     = onValue(ref(db, `games/${pin}/kind`),         snap => setGameKind(snap.val() || 'quiz'));
     // Answers become readable to everyone at reveal, which is how players get
     // to see the word cloud they contributed to.
     // In a session, teams live on the session so they survive between games.
@@ -79,6 +81,7 @@ export default function Play() {
       unsubReveal();
       unsubPlayers();
       unsubChat();
+      unsubKind();
       unsubTeams();
       unsubTeamMode();
       unsubMyTeam();
@@ -105,7 +108,8 @@ export default function Play() {
 
   // Write global leaderboard entry once when game ends
   useEffect(() => {
-    if (status !== 'ended' || !user || globalWritten.current) return;
+    // Activities never affect the global leaderboard.
+    if (status !== 'ended' || !user || globalWritten.current || gameKind === 'activity') return;
     const myScore = players[user.uid]?.score || 0;
     const myName  = players[user.uid]?.name  || 'Anonymous';
     if (myScore === 0) return;
@@ -121,7 +125,7 @@ export default function Play() {
         lastPlayedAt: Date.now(),
       });
     }).catch(() => {});
-  }, [status, user, players]);
+  }, [status, user, players, gameKind]);
 
   // Score pop: fire when lastPoints changes and is > 0
   useEffect(() => {
@@ -135,9 +139,11 @@ export default function Play() {
     }
   }, [players, user]);
 
-  // Word cloud results: answers only become readable once status is 'reveal'
+  // Answers are readable at reveal (word cloud results) and throughout a live
+  // poll question, where watching votes land is the whole point.
+  const livePoll = status === 'question' && currentQuestion?.type === 'poll';
   useEffect(() => {
-    if (status !== 'reveal' || !pin) return;
+    if (!pin || (status !== 'reveal' && !livePoll)) return;
     // onValue fires immediately with current data, and the host clears answers
     // on each new question, so there's no stale-flash to guard against here.
     const unsub = onValue(
@@ -146,7 +152,7 @@ export default function Play() {
       () => {},
     );
     return unsub;
-  }, [status, pin]);
+  }, [status, pin, livePoll]);
 
   if (!user || !pin) return <Splash>Connecting…</Splash>;
 
@@ -192,6 +198,7 @@ export default function Play() {
 
   // ── QUESTION ─────────────────────────────────────────────────────────────────
   if (status === 'question' && currentQuestion) {
+    const isPoll = currentQuestion.type === 'poll';
     return (
       <div className="page play-page">
         <div className="play-topbar">
@@ -214,6 +221,41 @@ export default function Play() {
               <p className="muted">Waiting for everyone else…</p>
             </div>
           )
+        ) : isPoll ? (
+          <>
+            <div className="poll-banner">📊 Poll — no points, just your opinion</div>
+            <h2 className="play-question">{currentQuestion.text}</h2>
+            {myAnswer === null ? (
+              <div className="poll-options">
+                {currentQuestion.choices.filter(Boolean).map((c, i) => (
+                  <button key={i} className="poll-option" onClick={() => handleAnswer(i)}>
+                    <span className="po-letter">{['A','B','C','D'][i]}</span>
+                    <span className="po-text">{c}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="poll-voted">
+                <p className="muted">✓ Your vote is in — waiting for everyone else…</p>
+                <div className="poll-results">
+                  {currentQuestion.choices.filter(Boolean).map((c, i) => {
+                    const count = Object.values(revealAnswers).filter(a => a.choice === i).length;
+                    const total = Object.keys(revealAnswers).length || 1;
+                    const pct   = Math.round((count / total) * 100);
+                    return (
+                      <div key={i} className="poll-res-row">
+                        <span className="po-text">{c}{i === myAnswer && <span className="po-mine"> your vote</span>}</span>
+                        <div className="poll-bar-track">
+                          <div className="poll-bar-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="poll-pct">{pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         ) : myAnswer === null ? (
           <>
             <h2 className="play-question">{currentQuestion.text}</h2>
@@ -246,7 +288,9 @@ export default function Play() {
   // ── REVEAL ───────────────────────────────────────────────────────────────────
   if (status === 'reveal' && reveal && currentQuestion) {
     const isWordCloud = currentQuestion.type === 'wordcloud';
-    const isCorrect   = !isWordCloud && myAnswer === reveal.correct;
+    const isPollQ     = currentQuestion.type === 'poll';
+    const isActivity  = isWordCloud || isPollQ;
+    const isCorrect   = !isActivity && myAnswer === reveal.correct;
     const points      = myPlayer?.lastPoints || 0;
 
     return (
@@ -254,14 +298,35 @@ export default function Play() {
         {scorePop && (
           <div className="score-pop" key={scorePop}>+{scorePop} pts</div>
         )}
-        <div className={`reveal-banner ${isWordCloud ? 'reveal-wordcloud' : isCorrect ? 'reveal-correct' : 'reveal-wrong'}`}>
-          <span className="reveal-emoji">{isWordCloud ? '☁️' : isCorrect ? '🎉' : '😬'}</span>
-          <h2>{isWordCloud ? 'See the cloud!' : isCorrect ? 'Correct!' : 'Wrong!'}</h2>
+        <div className={`reveal-banner ${isActivity ? 'reveal-wordcloud' : isCorrect ? 'reveal-correct' : 'reveal-wrong'}`}>
+          <span className="reveal-emoji">{isWordCloud ? '☁️' : isPollQ ? '📊' : isCorrect ? '🎉' : '😬'}</span>
+          <h2>{isWordCloud ? 'See the cloud!' : isPollQ ? 'Results are in' : isCorrect ? 'Correct!' : 'Wrong!'}</h2>
           {isCorrect && <p className="reveal-points">+{points} pts</p>}
+          {isActivity && <p className="muted reveal-note">Activity — no points awarded</p>}
         </div>
 
         {isWordCloud ? (
           <WordCloud answers={revealAnswers} />
+        ) : isPollQ ? (
+          <div className="poll-results poll-results-final">
+            {currentQuestion.choices.filter(Boolean).map((c, i) => {
+              const count = Object.values(revealAnswers).filter(a => a.choice === i).length;
+              const total = Object.keys(revealAnswers).length || 1;
+              const pct   = Math.round((count / total) * 100);
+              const top   = count > 0 && count === Math.max(
+                ...currentQuestion.choices.filter(Boolean).map((_, j) =>
+                  Object.values(revealAnswers).filter(a => a.choice === j).length));
+              return (
+                <div key={i} className={`poll-res-row${top ? ' poll-res-top' : ''}`}>
+                  <span className="po-text">{c}{i === myAnswer && <span className="po-mine"> your vote</span>}</span>
+                  <div className="poll-bar-track">
+                    <div className="poll-bar-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="poll-pct">{pct}% ({count})</span>
+                </div>
+              );
+            })}
+          </div>
         ) : (
         <div className="reveal-choices">
           {currentQuestion.choices.map((c, i) => (
@@ -281,8 +346,7 @@ export default function Play() {
         </div>
         )}
 
-        {isWordCloud && points > 0 && <p className="reveal-points">+{points} pts</p>}
-        <div className="reveal-total">Total: {myPlayer?.score || 0} pts</div>
+        {!isActivity && <div className="reveal-total">Total: {myPlayer?.score || 0} pts</div>}
         {reactionsWidget}
         {chatWidget}
       </div>

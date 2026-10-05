@@ -13,8 +13,10 @@ import Reactions from '../components/Reactions';
 import TeamLeaderboard from '../components/TeamLeaderboard';
 import WordCloud from '../components/WordCloud';
 
-// Flat award for submitting a word-cloud answer (no correct answer to score).
-const WORDCLOUD_POINTS = 500;
+// Word cloud and poll are activities, not scored games: participation is
+// tracked but no points are awarded and they never affect ranking.
+const ACTIVITY_TYPES = ['wordcloud', 'poll'];
+const isActivityQ = q => ACTIVITY_TYPES.includes(q?.type);
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -112,7 +114,8 @@ export default function Host() {
         currentQuestion: {
           index:     idx,
           text:      q.text,
-          choices:   q.choices,
+          type:      q.type || 'mcq',
+          choices:   q.choices || [],
           timeLimit: q.timeLimit,
           startedAt: Date.now(),
         },
@@ -132,6 +135,7 @@ export default function Host() {
     setBusy(true);
 
     const isWordcloud = q.type === 'wordcloud';
+    const isActivity  = isActivityQ(q);
     const updates = { status: 'reveal', 'reveal/index': currentIdx, 'reveal/correct': q.correct };
 
     // Snapshot THIS question's responses before the next question clears
@@ -155,10 +159,9 @@ export default function Host() {
     updates[`history/${currentIdx}`] = perQuestion;
 
     for (const [uid, ans] of Object.entries(answers)) {
-      // Word cloud has no correct answer — award participation so session
-      // totals still move instead of staying flat at zero.
-      const earned = isWordcloud
-        ? (ans.text ? WORDCLOUD_POINTS : 0)
+      // Activities award nothing — ranking is driven only by quiz questions.
+      const earned = isActivity
+        ? 0
         : (ans.choice === q.correct ? calcPoints(ans.elapsed, q.timeLimit) : 0);
 
       if (earned > 0) {
@@ -212,21 +215,31 @@ export default function Host() {
         const prevSnap    = await get(ref(db, `sessions/${sessionCode}/players`));
         const prevPlayers = prevSnap.val() || {};
 
+        const isActivityGame = game.kind === 'activity';
         const sessionUpdates = {
           currentGamePin: null,
           status: 'between',
           [`games/${pin}/endedAt`]:       endedAt,
           [`games/${pin}/questionCount`]: qs.length,
           [`games/${pin}/playerCount`]:   Object.keys(playerHistory).length,
-          [`games/${pin}/winnerName`]:    topPlayer?.[1]?.name  || '',
-          [`games/${pin}/winnerScore`]:   topPlayer?.[1]?.score || 0,
+          [`games/${pin}/kind`]:          isActivityGame ? 'activity' : 'quiz',
+          [`games/${pin}/gameType`]:      game.gameType || 'quiz',
         };
+        if (!isActivityGame) {
+          sessionUpdates[`games/${pin}/winnerName`]  = topPlayer?.[1]?.name  || '';
+          sessionUpdates[`games/${pin}/winnerScore`] = topPlayer?.[1]?.score || 0;
+        }
 
         for (const [uid, p] of Object.entries(playerHistory)) {
           const prev = prevPlayers[uid] || {};
-          sessionUpdates[`players/${uid}/name`]        = p.name;
-          sessionUpdates[`players/${uid}/totalScore`]  = (prev.totalScore  || 0) + (p.score || 0);
-          sessionUpdates[`players/${uid}/gamesPlayed`] = (prev.gamesPlayed || 0) + 1;
+          sessionUpdates[`players/${uid}/name`] = p.name;
+          if (isActivityGame) {
+            // Participation only — never touches score or ranking.
+            sessionUpdates[`players/${uid}/activitiesJoined`] = (prev.activitiesJoined || 0) + 1;
+          } else {
+            sessionUpdates[`players/${uid}/totalScore`]  = (prev.totalScore  || 0) + (p.score || 0);
+            sessionUpdates[`players/${uid}/gamesPlayed`] = (prev.gamesPlayed || 0) + 1;
+          }
         }
 
         await update(ref(db, `sessions/${sessionCode}`), sessionUpdates);

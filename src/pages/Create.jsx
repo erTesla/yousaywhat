@@ -5,24 +5,38 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generatePin, generateSecret } from '../utils/game';
 
+// Scored games count toward the leaderboard; activities are participation only.
+const SCORED   = ['quiz', 'mixed'];
+export const isActivityType = t => !SCORED.includes(t);
+
 const GAME_TYPES = [
   {
     key:   'quiz',
     icon:  '🧠',
     label: 'Quiz',
     desc:  'Multiple choice questions with scoring and a leaderboard',
+    tag:   'Scored game',
   },
   {
     key:   'wordcloud',
     icon:  '☁️',
     label: 'Word Cloud',
     desc:  'Players type short answers shown as a live word cloud',
+    tag:   'Activity — no scoring',
+  },
+  {
+    key:   'poll',
+    icon:  '📊',
+    label: 'Poll / Vote',
+    desc:  'Players vote on options and watch the results fill in live',
+    tag:   'Activity — no scoring',
   },
   {
     key:   'mixed',
     icon:  '🎲',
-    label: 'Mixed Session',
-    desc:  'Combine quiz and word cloud questions freely',
+    label: 'Mixed Quiz',
+    desc:  'Combine multiple choice and word cloud questions freely',
+    tag:   'Scored game',
   },
 ];
 
@@ -52,6 +66,7 @@ export default function Create() {
         reveal:          null,
         chatEnabled:     true,
         gameType:        type,
+        kind:            isActivityType(type) ? 'activity' : 'quiz',
         questions:       [],
       };
       if (sessionCode) gameData.sessionCode = sessionCode;
@@ -83,7 +98,7 @@ export default function Create() {
         <p className="muted">Pick a format — your game PIN is generated instantly.</p>
 
         <div className="game-type-grid">
-          {GAME_TYPES.map(({ key, icon, label, desc }) => (
+          {GAME_TYPES.map(({ key, icon, label, desc, tag }) => (
             <button
               key={key}
               className="game-type-card"
@@ -93,6 +108,7 @@ export default function Create() {
               <span className="gtc-icon">{icon}</span>
               <span className="gtc-label">{label}</span>
               <span className="gtc-desc">{desc}</span>
+              <span className={`gtc-tag${isActivityType(key) ? ' gtc-tag-activity' : ''}`}>{tag}</span>
             </button>
           ))}
         </div>

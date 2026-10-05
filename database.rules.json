@@ -104,7 +104,7 @@
         },
 
         "answers": {
-          ".read": "auth != null && (auth.uid === data.parent().child('hostUid').val() || data.parent().child('status').val() === 'reveal')",
+          ".read": "auth != null && (auth.uid === data.parent().child('hostUid').val() || data.parent().child('status').val() === 'reveal' || data.parent().child('currentQuestion').child('type').val() === 'poll')",
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && data.parent().parent().child('status').val() === 'question'"
           }
