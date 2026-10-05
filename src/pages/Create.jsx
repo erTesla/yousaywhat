@@ -22,7 +22,7 @@ const GAME_TYPES = [
     key:   'mixed',
     icon:  '🎲',
     label: 'Mixed Session',
-    desc:  'Combine quiz, word cloud and poll questions freely',
+    desc:  'Combine quiz and word cloud questions freely',
   },
 ];
 
