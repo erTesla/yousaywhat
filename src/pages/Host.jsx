@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { calcPoints } from '../utils/game';
 import Timer from '../components/Timer';
 import Scoreboard from '../components/Scoreboard';
+import Podium from '../components/Podium';
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -289,6 +290,7 @@ export default function Host() {
       {status === 'ended' && (
         <div className="host-section">
           <h2>🏆 Final Results</h2>
+          <Podium players={playerList} />
           <Scoreboard players={playerList} final />
           <button className="btn btn-ghost" onClick={() => navigate('/')}>Back to Home</button>
         </div>

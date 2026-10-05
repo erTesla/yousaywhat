@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import Timer from '../components/Timer';
 import Scoreboard from '../components/Scoreboard';
+import Podium from '../components/Podium';
 
 const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
 const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
@@ -20,7 +21,9 @@ export default function Play() {
   const [reveal,          setReveal]          = useState(null);
   const [players,         setPlayers]         = useState({});
   const [myAnswer,        setMyAnswer]        = useState(null);
-  const prevQIdx = useRef(-1);
+  const [scorePop,        setScorePop]        = useState(null);
+  const prevQIdx     = useRef(-1);
+  const prevPoints   = useRef(0);
   const noop = useCallback(() => {}, []);
 
   useEffect(() => { if (!pin) navigate('/'); }, [pin, navigate]);
@@ -73,6 +76,18 @@ export default function Play() {
       // DB write failed (e.g. timer expired before submit) — keep local lock
     }
   }
+
+  // Score pop: fire when lastPoints changes and is > 0
+  useEffect(() => {
+    if (!user) return;
+    const pts = players[user.uid]?.lastPoints || 0;
+    if (pts > 0 && pts !== prevPoints.current) {
+      prevPoints.current = pts;
+      setScorePop(pts);
+      const t = setTimeout(() => setScorePop(null), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [players, user]);
 
   if (!user || !pin) return <Splash>Connecting…</Splash>;
 
@@ -142,6 +157,9 @@ export default function Play() {
 
     return (
       <div className="page play-reveal">
+        {scorePop && (
+          <div className="score-pop" key={scorePop}>+{scorePop} pts</div>
+        )}
         <div className={`reveal-banner ${isCorrect ? 'reveal-correct' : 'reveal-wrong'}`}>
           <span className="reveal-emoji">{isCorrect ? '🎉' : '😬'}</span>
           <h2>{isCorrect ? 'Correct!' : 'Wrong!'}</h2>
@@ -189,6 +207,7 @@ export default function Play() {
       <div className="page play-ended">
         <h2>{myRank === 1 ? '🏆 You Won!' : 'Game Over!'}</h2>
         {myRank !== 1 && <p className="my-final-rank">You finished #{myRank}</p>}
+        <Podium players={playerList} />
         <Scoreboard players={playerList} highlightUid={user.uid} final />
         <button className="btn btn-primary" onClick={() => navigate('/')}>
           Play Again

@@ -27,24 +27,25 @@ export default function Timer({ startedAt, timeLimit, onExpired, compact = false
 
   const pct = (remaining / timeLimit) * 100;
   const urgent = remaining < timeLimit * 0.25;
+  const critical = remaining <= 5 && remaining > 0;
 
   if (compact) {
     return (
-      <div className={`timer-compact${urgent ? ' urgent' : ''}`}>
+      <div className={`timer-compact${urgent ? ' urgent' : ''}${critical ? ' critical' : ''}`}>
         {Math.ceil(remaining)}s
       </div>
     );
   }
 
   return (
-    <div className="timer">
+    <div className={`timer${critical ? ' timer-critical' : ''}`}>
       <div className="timer-track">
         <div
           className={`timer-fill${urgent ? ' urgent' : ''}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className={`timer-num${urgent ? ' urgent' : ''}`}>
+      <div className={`timer-num${urgent ? ' urgent' : ''}${critical ? ' critical' : ''}`}>
         {Math.ceil(remaining)}
       </div>
     </div>
