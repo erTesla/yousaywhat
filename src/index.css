@@ -1981,3 +1981,46 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 .sgr-kind-activity { background: rgba(248,180,0,0.16); color: var(--yellow); }
 
 .lb-activities { font-size: 0.7rem; color: var(--muted); }
+
+/* ── Saved (draft) games ─────────────────────────────────────────────────── */
+.draft-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+}
+
+.draft-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.draft-name {
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-count   { font-size: 0.75rem; white-space: nowrap; }
+.draft-actions { display: flex; gap: 6px; }
+.draft-btn     { padding: 6px 14px; font-size: 0.8rem; }
+
+/* Setup: save-for-later row */
+.setup-save-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  max-width: 460px;
+  flex-wrap: wrap;
+}
+.setup-save-row .text-input { flex: 1; min-width: 180px; font-size: 0.9rem; padding: 10px 14px; }
+.setup-save-row .btn { white-space: nowrap; }

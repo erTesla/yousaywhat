@@ -32,3 +32,7 @@ export async function hashPassword(code, password) {
   const buf  = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+// Scored games count toward the leaderboard; activities are participation only.
+const SCORED_TYPES = ['quiz', 'mixed'];
+export const isActivityType = t => !SCORED_TYPES.includes(t);

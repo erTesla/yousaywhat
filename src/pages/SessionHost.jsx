@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ref, get, onValue, update } from 'firebase/database';
+import { ref, get, set, onValue, update, remove } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
+import { generatePin, generateSecret } from '../utils/game';
+import { isActivityType } from '../utils/session';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -63,6 +65,42 @@ export default function SessionHost() {
     setBusy(false);
   }
 
+  // Launch a previously saved game. The draft is kept so it can be replayed.
+  async function playDraft(draftId, draft) {
+    setBusy(true);
+    try {
+      const pin    = generatePin();
+      const gsecret = generateSecret();
+      await set(ref(db, `games/${pin}`), {
+        hostUid:         user.uid,
+        hostSecret:      gsecret,
+        status:          'lobby',
+        currentQuestion: null,
+        reveal:          null,
+        chatEnabled:     true,
+        gameType:        draft.gameType || 'quiz',
+        kind:            isActivityType(draft.gameType || 'quiz') ? 'activity' : 'quiz',
+        sessionCode:     code,
+        questions:       draft.questions || [],
+      });
+      await update(ref(db, `sessions/${code}`), { currentGamePin: pin, status: 'playing' });
+      navigate(`/host?pin=${pin}&secret=${gsecret}&sessionCode=${code}&sessionSecret=${secret}`);
+    } catch {
+      setLoadErr('Could not start that saved game.');
+      setBusy(false);
+    }
+  }
+
+  async function deleteDraft(draftId) {
+    setBusy(true);
+    try {
+      await remove(ref(db, `sessions/${code}/drafts/${draftId}`));
+    } catch {
+      setLoadErr('Could not delete that saved game.');
+    }
+    setBusy(false);
+  }
+
   async function toggleTeamMode() {
     setBusy(true);
     try {
@@ -116,6 +154,10 @@ export default function SessionHost() {
   const leaderboard = Object.entries(players)
     .map(([uid, p]) => ({ uid, ...p }))
     .sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+
+  const draftList = Object.entries(session.drafts || {})
+    .map(([id, d]) => ({ id, ...d }))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const pastGames = Object.entries(games)
     .map(([pin, g]) => ({ pin, ...g }))
@@ -214,6 +256,42 @@ export default function SessionHost() {
                   </span>
                   <span className="gl-games">{gamesPlayed || 0}g</span>
                   <span className="score-pts">{(totalScore || 0).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="session-games-card">
+          <h3>Saved Games ({draftList.length})</h3>
+          {draftList.length === 0 ? (
+            <p className="muted">
+              None saved. While building a game, use <strong>Save for later</strong> to keep it here.
+            </p>
+          ) : (
+            <div className="session-games-list">
+              {draftList.map(({ id, name, gameType, questions }) => (
+                <div key={id} className="draft-row">
+                  <div className="draft-info">
+                    <span className={`sgr-kind${isActivityType(gameType) ? ' sgr-kind-activity' : ''}`}>
+                      {gameType === 'poll' ? '📊 Poll' : gameType === 'wordcloud' ? '☁️ Word Cloud' : '🧠 Quiz'}
+                    </span>
+                    <span className="draft-name">{name}</span>
+                    <span className="muted draft-count">{(questions || []).length}q</span>
+                  </div>
+                  <div className="draft-actions">
+                    <button
+                      className="btn btn-primary draft-btn"
+                      disabled={busy || !!session.currentGamePin}
+                      title={session.currentGamePin ? 'Finish the current game first' : undefined}
+                      onClick={() => playDraft(id, draftList.find(d => d.id === id))}
+                    >
+                      Play
+                    </button>
+                    <button className="btn btn-ghost draft-btn" disabled={busy} onClick={() => deleteDraft(id)}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

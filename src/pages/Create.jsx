@@ -4,10 +4,7 @@ import { ref, set } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generatePin, generateSecret } from '../utils/game';
-
-// Scored games count toward the leaderboard; activities are participation only.
-const SCORED   = ['quiz', 'mixed'];
-export const isActivityType = t => !SCORED.includes(t);
+import { isActivityType } from '../utils/session';
 
 const GAME_TYPES = [
   {

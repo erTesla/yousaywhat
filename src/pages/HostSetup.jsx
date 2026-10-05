@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ref, set, update } from 'firebase/database';
+import { ref, set, update, push } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { generatePin, generateSecret } from '../utils/game';
@@ -100,6 +100,8 @@ export default function HostSetup() {
   // mode on the session dashboard so it persists across games.
   const [teamMode,  setTeamMode]  = useState(false);
   const [launching, setLaunching] = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [draftName, setDraftName] = useState('');
   const [error,     setError]     = useState('');
   const [importMsg, setImportMsg] = useState('');
 
@@ -178,6 +180,40 @@ export default function HostSetup() {
     return null;
   }
 
+  function serialize() {
+    return questions.map(q => ({
+      text:      q.text.trim(),
+      type:      q.type || 'mcq',
+      choices:   q.type === 'wordcloud' ? [] : q.choices.map(c => c.trim()),
+      correct:   (q.type === 'wordcloud' || q.type === 'poll') ? null : q.correct,
+      timeLimit: Number(q.timeLimit),
+    }));
+  }
+
+  // Save the questions onto the session without launching, so the host can
+  // build a quiz now and play it later from the dashboard.
+  async function handleSaveForLater() {
+    const err = validate();
+    if (err) { setError(err); return; }
+    if (!user || !sessionCode) return;
+
+    setSaving(true);
+    setError('');
+    const qs = serialize();
+    try {
+      await push(ref(db, `sessions/${sessionCode}/drafts`), {
+        name:      draftName.trim() || qs[0].text.slice(0, 40),
+        gameType:  gameType,
+        questions: qs,
+        createdAt: Date.now(),
+      });
+      navigate(`/session/host?code=${sessionCode}&secret=${sessionSecret}`);
+    } catch {
+      setError('Could not save — check your connection');
+      setSaving(false);
+    }
+  }
+
   async function handleLaunch() {
     const err = validate();
     if (err) { setError(err); return; }
@@ -185,14 +221,7 @@ export default function HostSetup() {
 
     setLaunching(true);
     setError('');
-
-    const qs = questions.map(q => ({
-      text:      q.text.trim(),
-      type:      q.type || 'mcq',
-      choices:   q.type === 'wordcloud' ? [] : q.choices.map(c => c.trim()),
-      correct:   (q.type === 'wordcloud' || q.type === 'poll') ? null : q.correct,
-      timeLimit: Number(q.timeLimit),
-    }));
+    const qs = serialize();
 
     try {
       if (existingPin && existingSecret) {
@@ -381,8 +410,25 @@ export default function HostSetup() {
           ☁️ Add Word Cloud
         </button>
         {error && <p className="error-msg">{error}</p>}
-        <button className="btn btn-primary btn-large" onClick={handleLaunch} disabled={launching}>
-          {launching ? 'Launching…' : 'Launch Game →'}
+
+        {sessionCode && (
+          <div className="setup-save-row">
+            <input
+              className="text-input"
+              type="text"
+              placeholder="Name this game (optional)"
+              value={draftName}
+              onChange={e => setDraftName(e.target.value)}
+              maxLength={50}
+            />
+            <button className="btn btn-ghost" onClick={handleSaveForLater} disabled={saving || launching}>
+              {saving ? 'Saving…' : '💾 Save for later'}
+            </button>
+          </div>
+        )}
+
+        <button className="btn btn-primary btn-large" onClick={handleLaunch} disabled={launching || saving}>
+          {launching ? 'Launching…' : 'Launch Game Now →'}
         </button>
       </div>
     </div>
