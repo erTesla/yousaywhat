@@ -278,6 +278,14 @@ async function run() {
 
   // ───────────────────────────── 8c. Word cloud: its own flow end to end
   log('\n[8c] Word cloud dedicated flow');
+  // Finish the in-flight quiz first: the session can only run one game at a
+  // time, and the word cloud lobby's start button needs at least one player.
+  await host.getByRole('button', { name: /Show Scoreboard/i }).click({ timeout: 25000 }).catch(() => {});
+  await host.getByRole('button', { name: /End Game/i }).click({ timeout: 25000 }).catch(() => {});
+  await host.waitForTimeout(4000);
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+
   const wcHost = await hostCtx.newPage();
   globalThis.__pages.wcHost = wcHost;
   await wcHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
@@ -296,10 +304,15 @@ async function run() {
   await wcHost.getByRole('button', { name: /Open Word Cloud/i }).click();
   await wcHost.waitForURL(/\/host\?/, { timeout: 20000 });
 
-  // player gets pulled in and submits a word
+  // player gets pulled in, then the host opens the cloud from the lobby
   await player.waitForURL(/\/play\?pin=/, { timeout: 25000 });
-  // lobby -> live: the host opens the cloud
-  await wcHost.getByRole('button', { name: /Open Word Cloud/i }).click({ timeout: 25000 });
+  const openBtn = wcHost.getByRole('button', { name: /Open Word Cloud/i });
+  await openBtn.waitFor({ state: 'visible', timeout: 25000 });
+  await wcHost.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find(x => /Open Word Cloud/i.test(x.textContent));
+    return b && !b.disabled;
+  }, null, { timeout: 25000 }).catch(() => {});
+  await openBtn.click({ timeout: 25000 });
   const wcInput = player.getByPlaceholder(/Type your answer/i);
   await wcInput.waitFor({ state: 'visible', timeout: 25000 });
   await wcInput.fill('sunny');
