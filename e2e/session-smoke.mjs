@@ -335,6 +335,8 @@ async function run() {
   await wcHost.waitForTimeout(4000);
   check('ended word cloud shows the cloud, not a podium',
         /word cloud closed/i.test(await wcHost.locator('body').innerText()));
+  check('no confetti canvas on a word cloud ending',
+        await wcHost.locator('canvas').count() === 0);
   await player.waitForTimeout(3000);
   const wcPlayer = await player.locator('body').innerText();
   check('player gets an activity end screen with no scores',
@@ -352,6 +354,88 @@ async function run() {
   await wcDash.close();
   await wcHost.close();
   delete globalThis.__pages.wcHost;
+
+
+  // ───────────────────────────── 8d. Poll flow, follow-on-start, exit, emoji strip
+  log('\n[8d] Poll flow / global follow / exit / emoji strip');
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  check('player can leave the session from the waiting room',
+        await player.getByRole('button', { name: /Leave this session/i }).count() > 0);
+
+  const pollHost = await hostCtx.newPage();
+  globalThis.__pages.pollHost = pollHost;
+  await pollHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await pollHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
+  await pollHost.getByRole('button', { name: /Start New Game/i }).click();
+  await pollHost.waitForURL(/\/create\?/, { timeout: 20000 });
+  await pollHost.locator('.game-type-card').first().waitFor({ state: 'visible', timeout: 25000 });
+  await pollHost.locator('.game-type-card', { hasText: 'Poll' }).first().click();
+  await pollHost.waitForURL(/\/create\/setup/, { timeout: 20000 });
+  await pollHost.getByPlaceholder(/Question text/i).fill('Tabs or spaces?');
+  await pollHost.getByPlaceholder(/Option A/i).fill('Tabs');
+  await pollHost.getByPlaceholder(/Option B/i).fill('Spaces');
+  await pollHost.getByRole('button', { name: /Launch Game Now/i }).click();
+  await pollHost.waitForURL(/\/host\?/, { timeout: 20000 });
+
+  // global follow: the player was sitting in the waiting room and should be pulled in
+  await player.waitForURL(/\/play\?pin=/, { timeout: 30000 });
+  check('starting a game pulls the player in from the waiting room', true);
+
+  const openPoll = pollHost.getByRole('button', { name: /Open Poll/i });
+  await openPoll.waitFor({ state: 'visible', timeout: 25000 });
+  await pollHost.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find(x => /Open Poll/i.test(x.textContent));
+    return b && !b.disabled;
+  }, null, { timeout: 25000 }).catch(() => {});
+  await openPoll.click({ timeout: 25000 });
+
+  await player.locator('.poll-option').first().waitFor({ state: 'visible', timeout: 25000 });
+  check('player sees the poll vote UI, not quiz answer buttons',
+        await player.locator('.answer-btn').count() === 0);
+  check('emoji strip sits on the right above the chat button', await player.evaluate(() => {
+    const bar = document.querySelector('.reaction-bar');
+    const btn = document.querySelector('.chat-toggle');
+    if (!bar || !btn) return false;
+    const b = bar.getBoundingClientRect(), c = btn.getBoundingClientRect();
+    return b.bottom <= c.top + 4 && b.right > window.innerWidth * 0.5;
+  }));
+  check('player has an exit control during a game',
+        await player.locator('.btn-exit').count() > 0);
+
+  await player.locator('.poll-option').first().click();
+  await pollHost.waitForTimeout(3500);
+  const pollHostTxt = await pollHost.locator('body').innerText();
+  check('host sees a live poll graph with a vote count',
+        await pollHost.locator('.host-poll-graph').count() > 0 && /1 vote/i.test(pollHostTxt),
+        (pollHostTxt.match(/\d+ votes?[^\n]*/) || [''])[0]);
+  check('no Reveal Answer on a poll',
+        await pollHost.getByRole('button', { name: /Reveal Answer/i }).count() === 0);
+  check('host can return to dashboard from a live poll',
+        await pollHost.getByRole('button', { name: /Save & back to dashboard/i }).count() > 0);
+
+  await pollHost.getByRole('button', { name: /End poll/i }).click();
+  await pollHost.waitForTimeout(4500);
+  check('poll ends without confetti', await pollHost.locator('canvas').count() === 0);
+  check('ended poll shows results, not a podium',
+        /poll closed/i.test(await pollHost.locator('body').innerText()));
+
+  // player released back to the session automatically
+  await player.waitForTimeout(3500);
+  const afterPoll = await player.locator('body').innerText();
+  check('player released from the ended poll with no scores',
+        !/You Won/i.test(afterPoll), afterPoll.replace(/\n+/g, ' | ').slice(0, 70));
+
+  const pollDash = await hostCtx.newPage();
+  await pollDash.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await pollDash.locator('.session-clouds-card').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  const actTxt = await pollDash.locator('.session-clouds-card').innerText().catch(() => '');
+  check('dashboard shows both the cloud and the poll result',
+        /Tabs or spaces/.test(actTxt) && /One word for today/.test(actTxt),
+        actTxt.replace(/\n+/g, ' | ').slice(0, 100));
+  await pollDash.close();
+  await pollHost.close();
+  delete globalThis.__pages.pollHost;
 
   // ───────────────────────────── 9. Host rejoin from a different "device"
   log('\n[9] Host password rejoin from a fresh device');
