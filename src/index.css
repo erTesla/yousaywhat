@@ -1550,7 +1550,7 @@ select.time-select {
   gap: 20px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   .session-host-body { grid-template-columns: 1fr; }
 }
 
@@ -1674,3 +1674,75 @@ select.time-select {
 .status-idle    { background: rgba(148,163,184,0.2); color: var(--muted); }
 .status-playing { background: rgba(46,196,182,0.2);  color: var(--green); }
 .status-between { background: rgba(248,180,0,0.2);   color: var(--yellow); }
+
+/* ── Session fixes (audit phase 1/5) ─────────────────────────────────────── */
+
+/* Session code + copy button row */
+.session-code-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.btn-copy {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Active-game banner now holds Resume/Cancel */
+.session-active-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sab-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sab-actions .btn { padding: 8px 16px; font-size: 0.85rem; }
+
+/* Past-game rows are links now — keep them looking like rows */
+a.session-game-row {
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+a.session-game-row:hover { background: rgba(255,255,255,0.09); }
+
+.sgr-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Status chip: the base class is topbar-only (no padding, flex:1).
+   Re-pill it inside the session dashboard's column-flex meta block. */
+.session-host-meta .status-chip {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+/* Join input also accepts letter session codes (STORM-3392), not just 6 digits.
+   Tighten tracking as the viewport narrows so 10-12 chars never clip. */
+.pin-input { text-transform: uppercase; }
+
+@media (max-width: 480px) {
+  .pin-input { font-size: 1.6rem; letter-spacing: 4px; }
+}
+
+@media (max-width: 360px) {
+  .pin-input { font-size: 1.4rem; letter-spacing: 2px; }
+}

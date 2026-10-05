@@ -1,10 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ref, set, onValue } from 'firebase/database';
+import { ref, get, set, onValue } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
+
+// Remembers which game pin this tab has already been pushed into, so returning
+// to the waiting room mid-game offers a manual rejoin instead of yanking the
+// player forward in a loop.
+const followedKey = code => `ysw_followed_${code}`;
 
 export default function SessionPlay() {
   const [params] = useSearchParams();
@@ -12,9 +17,30 @@ export default function SessionPlay() {
   const navigate = useNavigate();
   const user     = useAuth();
 
-  const [session, setSession] = useState(null);
-  const [error,   setError]   = useState('');
-  const followedPin = useRef(null);
+  const [session,  setSession]  = useState(null);
+  const [error,    setError]    = useState('');
+  const [joining,  setJoining]  = useState(false);
+  const [rejoinPin, setRejoinPin] = useState(null);
+
+  // Joins the game without clobbering an existing player record.
+  async function joinGame(pin, playerName) {
+    setJoining(true);
+    try {
+      const statusSnap = await get(ref(db, `games/${pin}/status`));
+      if (!statusSnap.exists() || statusSnap.val() === 'ended') { setJoining(false); return; }
+
+      const meSnap = await get(ref(db, `games/${pin}/players/${user.uid}`));
+      if (!meSnap.exists()) {
+        await set(ref(db, `games/${pin}/players/${user.uid}`), {
+          name: playerName, score: 0, lastPoints: 0,
+        });
+      }
+      sessionStorage.setItem(followedKey(code), pin);
+      navigate(`/play?pin=${pin}&sessionCode=${code}`);
+    } catch {
+      setJoining(false);
+    }
+  }
 
   useEffect(() => {
     if (!code || !user) return;
@@ -24,12 +50,12 @@ export default function SessionPlay() {
       setSession(s);
 
       const pin = s.currentGamePin;
-      if (pin && pin !== followedPin.current && s.status === 'playing') {
-        followedPin.current = pin;
-        const playerName = s.players?.[user.uid]?.name || 'Player';
-        set(ref(db, `games/${pin}/players/${user.uid}`), { name: playerName, score: 0 })
-          .then(() => navigate(`/play?pin=${pin}&sessionCode=${code}`))
-          .catch(() => navigate(`/play?pin=${pin}&sessionCode=${code}`));
+      if (!pin || s.status !== 'playing') { setRejoinPin(null); return; }
+
+      if (sessionStorage.getItem(followedKey(code)) === pin) {
+        setRejoinPin(pin);  // already been in this game — offer manual rejoin
+      } else {
+        joinGame(pin, s.players?.[user.uid]?.name || 'Player');
       }
     });
     return unsub;
@@ -53,7 +79,20 @@ export default function SessionPlay() {
         {me && <p className="muted">Playing as <strong>{me.name}</strong></p>}
       </div>
 
-      {session.status === 'playing' ? (
+      {rejoinPin ? (
+        <div className="session-waiting">
+          <div className="session-waiting-icon">🎮</div>
+          <h3>A game is in progress</h3>
+          <p className="muted">You can jump back in — your score is kept.</p>
+          <button
+            className="btn btn-primary btn-large"
+            onClick={() => joinGame(rejoinPin, session.players?.[user.uid]?.name || 'Player')}
+            disabled={joining}
+          >
+            {joining ? 'Rejoining…' : 'Rejoin Game →'}
+          </button>
+        </div>
+      ) : session.status === 'playing' || joining ? (
         <div className="session-waiting">
           <div className="loading-dots"><span /><span /><span /></div>
           <p>Game starting — joining automatically…</p>
@@ -79,7 +118,7 @@ export default function SessionPlay() {
           {leaderboard.map(({ uid, name, totalScore }, i) => (
             <div
               key={uid}
-              className={['score-row', uid === user?.uid ? 'my-score-row' : '', i < 3 ? `rank-${i + 1}` : ''].filter(Boolean).join(' ')}
+              className={['score-row', uid === user?.uid ? 'highlight' : '', i < 3 ? `rank-${i + 1}` : ''].filter(Boolean).join(' ')}
               style={{ animationDelay: `${i * 40}ms` }}
             >
               <span className="score-rank">{i < 3 ? MEDALS[i] : `#${i + 1}`}</span>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ref, get, onValue } from 'firebase/database';
+import { ref, get, onValue, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -15,27 +15,81 @@ export default function SessionHost() {
 
   const [verified, setVerified] = useState(null);
   const [session,  setSession]  = useState(null);
+  const [loadErr,  setLoadErr]  = useState('');
+  const [copied,   setCopied]   = useState(false);
+  const [busy,     setBusy]     = useState(false);
 
   useEffect(() => {
     if (!user || !code || !secret) return;
-    get(ref(db, `sessions/${code}/hostUid`)).then(snap => {
-      if (!snap.exists()) { navigate('/'); return; }
-      setVerified(snap.val() === user.uid);
-    });
+    get(ref(db, `sessions/${code}/hostUid`))
+      .then(snap => {
+        if (!snap.exists()) { navigate('/'); return; }
+        setVerified(snap.val() === user.uid);
+      })
+      .catch(() => setLoadErr('Could not reach the database — check your connection and reload.'));
   }, [user, code, secret, navigate]);
 
   useEffect(() => {
     if (!verified || !code) return;
-    const unsub = onValue(ref(db, `sessions/${code}`), snap => {
-      if (snap.exists()) setSession(snap.val());
-    });
+    const unsub = onValue(
+      ref(db, `sessions/${code}`),
+      snap => { if (snap.exists()) setSession(snap.val()); },
+      () => setLoadErr('Lost connection to the session.'),
+    );
     return unsub;
   }, [verified, code]);
 
-  if (!code || !secret)           return <Splash>Invalid session URL.</Splash>;
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard blocked — code is visible on screen anyway */ }
+  }
+
+  // Host lost the /host tab mid-game: fetch that game's secret and go back in.
+  async function resumeGame(pin) {
+    setBusy(true);
+    try {
+      const snap = await get(ref(db, `games/${pin}/hostSecret`));
+      if (snap.exists()) {
+        navigate(`/host?pin=${pin}&secret=${snap.val()}&sessionCode=${code}&sessionSecret=${secret}`);
+        return;
+      }
+      setLoadErr('That game no longer exists.');
+    } catch {
+      setLoadErr('Could not resume the game.');
+    }
+    setBusy(false);
+  }
+
+  // Abandoned game: release players from it without recording a result.
+  async function cancelGame() {
+    setBusy(true);
+    try {
+      await update(ref(db, `sessions/${code}`), { currentGamePin: null, status: 'between' });
+    } catch {
+      setLoadErr('Could not cancel the game.');
+    }
+    setBusy(false);
+  }
+
+  if (!code || !secret)   return <Splash>Invalid session URL.</Splash>;
+  if (loadErr)            return <Splash>{loadErr}</Splash>;
   if (!user || verified === null) return <Splash>Verifying…</Splash>;
-  if (verified === false)         return <Splash>Access denied — you are not the host.</Splash>;
-  if (!session)                   return <Splash>Loading…</Splash>;
+
+  if (verified === false) {
+    return (
+      <div className="page page-centered">
+        <div className="card" style={{ textAlign: 'center', maxWidth: 360 }}>
+          <h2>Access Denied</h2>
+          <p className="muted">You are not the host of this session.</p>
+          <button className="btn btn-primary" onClick={() => navigate('/')}>Go Home</button>
+        </div>
+      </div>
+    );
+  }
+  if (!session) return <Splash>Loading…</Splash>;
 
   const players = session.players || {};
   const games   = session.games   || {};
@@ -53,9 +107,14 @@ export default function SessionHost() {
       <div className="session-host-header">
         <div className="session-host-title">
           <h1>{session.name}</h1>
-          <div className="session-code-badge">
-            <span className="muted">Session Code:</span>
-            <strong>{code}</strong>
+          <div className="session-code-row">
+            <div className="session-code-badge">
+              <span className="muted">Session Code:</span>
+              <strong>{code}</strong>
+            </div>
+            <button className="btn btn-ghost btn-copy" onClick={copyCode}>
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
           </div>
           <p className="muted" style={{ fontSize: '0.8rem' }}>Players type this code on the home screen to join</p>
         </div>
@@ -67,7 +126,15 @@ export default function SessionHost() {
 
       {session.currentGamePin && (
         <div className="session-active-banner">
-          Game in progress — PIN: <strong>{session.currentGamePin}</strong>
+          <span>Game in progress — PIN: <strong>{session.currentGamePin}</strong></span>
+          <div className="sab-actions">
+            <button className="btn btn-primary" disabled={busy} onClick={() => resumeGame(session.currentGamePin)}>
+              Resume Game →
+            </button>
+            <button className="btn btn-ghost" disabled={busy} onClick={cancelGame}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -98,7 +165,13 @@ export default function SessionHost() {
           ) : (
             <div className="session-games-list">
               {pastGames.map(({ pin, endedAt, questionCount, winnerName, winnerScore, playerCount }) => (
-                <div key={pin} className="session-game-row">
+                <a
+                  key={pin}
+                  className="session-game-row"
+                  href={`/results?pin=${pin}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   <div className="sgr-left">
                     <span className="sgr-date">{endedAt ? new Date(endedAt).toLocaleDateString() : '—'}</span>
                     <span className="sgr-pin">PIN {pin}</span>
@@ -106,7 +179,7 @@ export default function SessionHost() {
                   <div className="sgr-right">
                     {questionCount}q · {playerCount || 0}p · 🏆 {winnerName || '—'} ({winnerScore || 0})
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           )}
@@ -116,6 +189,8 @@ export default function SessionHost() {
       <div className="session-host-footer">
         <button
           className="btn btn-primary btn-large"
+          disabled={!!session.currentGamePin}
+          title={session.currentGamePin ? 'Finish or cancel the current game first' : undefined}
           onClick={() => navigate(`/create?sessionCode=${code}&sessionSecret=${secret}`)}
         >
           + Start New Game

@@ -80,7 +80,7 @@ export default function HostSetup() {
   const existingPin    = params.get('pin');
   const existingSecret = params.get('secret');
   const gameType       = params.get('type') || 'quiz';
-  const sessionCode    = params.get('sessionCode');
+  const sessionCode    = params.get('sessionCode')?.toUpperCase();
   const sessionSecret  = params.get('sessionSecret');
 
   const defaultQ = gameType === 'wordcloud' ? BLANK_WC() : BLANK_Q();
@@ -180,6 +180,13 @@ export default function HostSetup() {
       if (existingPin && existingSecret) {
         // Session already created by picker — just write questions
         await update(ref(db, `games/${existingPin}`), { questions: qs });
+        // Only now is the game playable, so push session players into it
+        if (sessionCode) {
+          await update(ref(db, `sessions/${sessionCode}`), {
+            currentGamePin: existingPin,
+            status:         'playing',
+          });
+        }
         const sessionParams = sessionCode
           ? `&sessionCode=${sessionCode}&sessionSecret=${sessionSecret}`
           : '';

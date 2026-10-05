@@ -36,7 +36,7 @@ export default function Create() {
   const navigate          = useNavigate();
   const [params]          = useSearchParams();
   const user              = useAuth();
-  const sessionCode       = params.get('sessionCode');
+  const sessionCode       = params.get('sessionCode')?.toUpperCase();
   const sessionSecret     = params.get('sessionSecret');
   const [busy, setBusy]   = useState(false);
   const [error, setError] = useState('');
@@ -64,14 +64,8 @@ export default function Create() {
 
       await set(ref(db, `games/${pin}`), gameData);
 
-      // If part of a session, mark it as in-progress
-      if (sessionCode) {
-        await update(ref(db, `sessions/${sessionCode}`), {
-          currentGamePin: pin,
-          status:         'playing',
-        });
-      }
-
+      // The session is NOT flipped to 'playing' here — that happens in
+      // HostSetup once questions exist, so abandoning setup can't strand players.
       const sessionParams = sessionCode
         ? `&sessionCode=${sessionCode}&sessionSecret=${sessionSecret}`
         : '';

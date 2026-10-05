@@ -24,6 +24,7 @@ export default function Host() {
   const user      = useAuth();
 
   const [verified, setVerified]       = useState(null); // null=checking | true | false
+  const [verifyErr, setVerifyErr]     = useState(false);
   const [game, setGame]               = useState(null);
   const [tamperAlerts, setTamperAlerts] = useState([]);
   const [timerDone, setTimerDone]     = useState(false);
@@ -35,21 +36,23 @@ export default function Host() {
   useEffect(() => {
     if (!user || !pin || !secret) return;
 
-    get(ref(db, `games/${pin}/hostUid`)).then(snap => {
-      if (!snap.exists()) { navigate('/'); return; }
+    get(ref(db, `games/${pin}/hostUid`))
+      .then(snap => {
+        if (!snap.exists()) { navigate('/'); return; }
 
-      if (snap.val() === user.uid) {
-        setVerified(true);
-      } else {
-        // Log tamper attempt (best-effort)
-        push(ref(db, `games/${pin}/tamperLog`), {
-          uid:       user.uid,
-          timestamp: Date.now(),
-          userAgent: navigator.userAgent.slice(0, 200),
-        }).catch(() => {});
-        setVerified(false);
-      }
-    });
+        if (snap.val() === user.uid) {
+          setVerified(true);
+        } else {
+          // Log tamper attempt (best-effort)
+          push(ref(db, `games/${pin}/tamperLog`), {
+            uid:       user.uid,
+            timestamp: Date.now(),
+            userAgent: navigator.userAgent.slice(0, 200),
+          }).catch(() => {});
+          setVerified(false);
+        }
+      })
+      .catch(() => setVerifyErr(true));
   }, [user, pin, secret, navigate]);
 
   // ── Game state listener ─────────────────────────────────────────────────────
@@ -211,6 +214,7 @@ export default function Host() {
   // ── Guard renders ───────────────────────────────────────────────────────────
 
   if (!pin || !secret)    return <Splash>Invalid host URL.</Splash>;
+  if (verifyErr)          return <Splash>Could not reach the database — check your connection and reload.</Splash>;
   if (!user || verified === null) return <Splash>Verifying…</Splash>;
   if (verified === false) {
     return (
