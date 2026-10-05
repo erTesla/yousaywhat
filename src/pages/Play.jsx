@@ -17,9 +17,10 @@ const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
 export default function Play() {
   const [params]    = useSearchParams();
   const pin         = params.get('pin');
-  const sessionCode = params.get('sessionCode');
+  const sessionCode = params.get('sessionCode')?.toUpperCase();
   const navigate    = useNavigate();
   const user        = useAuth();
+  const teamBase    = sessionCode ? `sessions/${sessionCode}` : `games/${pin}`;
 
   const [status,          setStatus]          = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -29,6 +30,7 @@ export default function Play() {
   const [scorePop,        setScorePop]        = useState(null);
   const [chatEnabled,     setChatEnabled]     = useState(true);
   const [teams,           setTeams]           = useState({});
+  const [myTeamCode,      setMyTeamCode]      = useState(null);
   const prevQIdx       = useRef(-1);
   const prevPoints     = useRef(0);
   const globalWritten  = useRef(false);
@@ -59,7 +61,11 @@ export default function Play() {
     const unsubReveal   = onValue(ref(db, `games/${pin}/reveal`),       snap => setReveal(snap.val()));
     const unsubPlayers  = onValue(ref(db, `games/${pin}/players`),      snap => setPlayers(snap.val() || {}));
     const unsubChat     = onValue(ref(db, `games/${pin}/chatEnabled`),  snap => setChatEnabled(snap.val() !== false));
-    const unsubTeams    = onValue(ref(db, `games/${pin}/teams`),        snap => setTeams(snap.val() || {}));
+    // In a session, teams live on the session so they survive between games.
+    const unsubTeams    = onValue(ref(db, `${teamBase}/teams`),         snap => setTeams(snap.val() || {}));
+    const unsubMyTeam   = sessionCode
+      ? onValue(ref(db, `sessions/${sessionCode}/players/${user.uid}/teamCode`), snap => setMyTeamCode(snap.val() || null))
+      : () => {};
 
     return () => {
       unsubStatus();
@@ -68,8 +74,9 @@ export default function Play() {
       unsubPlayers();
       unsubChat();
       unsubTeams();
+      unsubMyTeam();
     };
-  }, [pin, user, navigate]);
+  }, [pin, user, navigate, sessionCode, teamBase]);
 
   async function handleAnswer(choiceIdx) {
     if (myAnswer !== null || !user || status !== 'question' || !currentQuestion) return;
@@ -150,11 +157,11 @@ export default function Play() {
           <p className="player-count-tag">{Object.keys(players).length} players joined</p>
         </div>
         <TeamLobby
-          pin={pin}
+          basePath={teamBase}
           user={user}
           playerName={myPlayer?.name}
           teams={teams}
-          myTeamCode={myPlayer?.teamCode}
+          myTeamCode={sessionCode ? myTeamCode : myPlayer?.teamCode}
         />
         {reactionsWidget}
         {chatWidget}

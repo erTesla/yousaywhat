@@ -6,7 +6,9 @@ function genTeamCode() {
   return Math.random().toString(36).slice(2, 6).toUpperCase();
 }
 
-export default function TeamLobby({ pin, user, playerName, teams, myTeamCode }) {
+// basePath is `sessions/{code}` inside a session (so teams survive between
+// games) or `games/{pin}` for a one-off game.
+export default function TeamLobby({ basePath, user, playerName, teams, myTeamCode }) {
   const [joinCode, setJoinCode]   = useState('');
   const [teamName, setTeamName]   = useState('');
   const [error, setError]         = useState('');
@@ -21,12 +23,12 @@ export default function TeamLobby({ pin, user, playerName, teams, myTeamCode }) 
     setBusy(true); setError('');
     const code = genTeamCode();
     try {
-      await set(ref(db, `games/${pin}/teams/${code}`), {
+      await set(ref(db, `${basePath}/teams/${code}`), {
         name: teamName.trim().slice(0, 30),
         captainUid: user.uid,
         members: { [user.uid]: true },
       });
-      await update(ref(db, `games/${pin}/players/${user.uid}`), { teamCode: code });
+      await update(ref(db, `${basePath}/players/${user.uid}`), { teamCode: code });
     } catch (e) {
       setError('Could not create team');
     } finally {
@@ -39,10 +41,10 @@ export default function TeamLobby({ pin, user, playerName, teams, myTeamCode }) 
     if (!code) { setError('Enter a team code'); return; }
     setBusy(true); setError('');
     try {
-      const snap = await get(ref(db, `games/${pin}/teams/${code}`));
+      const snap = await get(ref(db, `${basePath}/teams/${code}`));
       if (!snap.exists()) { setError('Team not found'); setBusy(false); return; }
-      await update(ref(db, `games/${pin}/teams/${code}/members`), { [user.uid]: true });
-      await update(ref(db, `games/${pin}/players/${user.uid}`), { teamCode: code });
+      await update(ref(db, `${basePath}/teams/${code}/members`), { [user.uid]: true });
+      await update(ref(db, `${basePath}/players/${user.uid}`), { teamCode: code });
     } catch {
       setError('Could not join team');
     } finally {
@@ -54,8 +56,8 @@ export default function TeamLobby({ pin, user, playerName, teams, myTeamCode }) 
     if (!myTeamCode) return;
     setBusy(true);
     try {
-      await set(ref(db, `games/${pin}/teams/${myTeamCode}/members/${user.uid}`), null);
-      await update(ref(db, `games/${pin}/players/${user.uid}`), { teamCode: null });
+      await set(ref(db, `${basePath}/teams/${myTeamCode}/members/${user.uid}`), null);
+      await update(ref(db, `${basePath}/players/${user.uid}`), { teamCode: null });
     } finally {
       setBusy(false);
     }

@@ -14,6 +14,9 @@ import Reactions from '../components/Reactions';
 import TeamLeaderboard from '../components/TeamLeaderboard';
 import WordCloud from '../components/WordCloud';
 
+// Flat award for submitting a word-cloud answer (no correct answer to score).
+const WORDCLOUD_POINTS = 500;
+
 export default function Host() {
   const [params]  = useSearchParams();
   const pin           = params.get('pin');
@@ -63,10 +66,17 @@ export default function Host() {
       if (!snap.exists()) return;
       const data = snap.val();
       setGame(data);
-      setTeams(data.teams || {});
+      if (!sessionCode) setTeams(data.teams || {});
     });
     return unsub;
-  }, [verified, pin]);
+  }, [verified, pin, sessionCode]);
+
+  // Session games keep teams on the session so they persist between rounds
+  useEffect(() => {
+    if (!verified || !sessionCode) return;
+    const unsub = onValue(ref(db, `sessions/${sessionCode}/teams`), snap => setTeams(snap.val() || {}));
+    return unsub;
+  }, [verified, sessionCode]);
 
   // ── Tamper log listener ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -122,17 +132,20 @@ export default function Host() {
     const q = game.questions[currentIdx];
     setBusy(true);
 
+    const isWordcloud = q.type === 'wordcloud';
     const updates = { status: 'reveal', 'reveal/index': currentIdx, 'reveal/correct': q.correct };
 
     for (const [uid, ans] of Object.entries(answers)) {
-      if (ans.choice === q.correct) {
-        const earned  = calcPoints(ans.elapsed, q.timeLimit);
-        const current = players[uid]?.score || 0;
-        updates[`players/${uid}/score`]      = current + earned;
-        updates[`players/${uid}/lastPoints`] = earned;
-      } else {
-        updates[`players/${uid}/lastPoints`] = 0;
+      // Word cloud has no correct answer — award participation so session
+      // totals still move instead of staying flat at zero.
+      const earned = isWordcloud
+        ? (ans.text ? WORDCLOUD_POINTS : 0)
+        : (ans.choice === q.correct ? calcPoints(ans.elapsed, q.timeLimit) : 0);
+
+      if (earned > 0) {
+        updates[`players/${uid}/score`] = (players[uid]?.score || 0) + earned;
       }
+      updates[`players/${uid}/lastPoints`] = earned;
     }
 
     try {
@@ -179,9 +192,14 @@ export default function Host() {
         'results/questionCount': qs.length,
       });
 
-      // Update session state and cumulative scores
+      // Update session state and cumulative scores in ONE atomic write, so the
+      // host closing the tab mid-tally can't leave some players credited and
+      // others silently skipped.
       if (sessionCode) {
         const topPlayer = Object.entries(playerHistory).sort((a, b) => (b[1].score || 0) - (a[1].score || 0))[0];
+        const prevSnap    = await get(ref(db, `sessions/${sessionCode}/players`));
+        const prevPlayers = prevSnap.val() || {};
+
         const sessionUpdates = {
           currentGamePin: null,
           status: 'between',
@@ -191,20 +209,15 @@ export default function Host() {
           [`games/${pin}/winnerName`]:    topPlayer?.[1]?.name  || '',
           [`games/${pin}/winnerScore`]:   topPlayer?.[1]?.score || 0,
         };
-        // Increment cumulative scores for each player
+
         for (const [uid, p] of Object.entries(playerHistory)) {
-          sessionUpdates[`players/${uid}/name`] = p.name;
+          const prev = prevPlayers[uid] || {};
+          sessionUpdates[`players/${uid}/name`]        = p.name;
+          sessionUpdates[`players/${uid}/totalScore`]  = (prev.totalScore  || 0) + (p.score || 0);
+          sessionUpdates[`players/${uid}/gamesPlayed`] = (prev.gamesPlayed || 0) + 1;
         }
+
         await update(ref(db, `sessions/${sessionCode}`), sessionUpdates);
-        // Update totalScore individually (need to read first to add)
-        for (const [uid, p] of Object.entries(playerHistory)) {
-          const snap = await get(ref(db, `sessions/${sessionCode}/players/${uid}`));
-          const prev = snap.val() || {};
-          await update(ref(db, `sessions/${sessionCode}/players/${uid}`), {
-            totalScore:  (prev.totalScore  || 0) + (p.score || 0),
-            gamesPlayed: (prev.gamesPlayed || 0) + 1,
-          });
-        }
       }
     } finally {
       setBusy(false);
@@ -404,7 +417,7 @@ export default function Host() {
           )}
         </div>
       )}
-      <Reactions pin={pin} user={user} hostView />
+      <Reactions pin={pin} user={user} />
       <Chat
         pin={pin}
         user={user}

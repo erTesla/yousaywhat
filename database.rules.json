@@ -27,6 +27,25 @@
             "joinedAt": {
               ".write": "auth != null && auth.uid === $uid",
               ".validate": "newData.isNumber()"
+            },
+            "teamCode": {
+              ".write": "auth != null && auth.uid === $uid",
+              ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 8)"
+            }
+          }
+        },
+
+        "teams": {
+          "$teamCode": {
+            ".write": "auth != null && !data.exists()",
+            ".validate": "newData.hasChildren(['name', 'captainUid'])",
+            "name":       { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 30" },
+            "captainUid": { ".validate": "newData.val() === auth.uid" },
+            "members": {
+              "$uid": {
+                ".write": "auth != null && auth.uid === $uid",
+                ".validate": "!newData.exists() || newData.val() === true"
+              }
             }
           }
         }

@@ -66,10 +66,23 @@ client-side, so this is unfixable without a server. Mitigation only.
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 3.1 | Word cloud games score 0 → session leaderboard flat while `gamesPlayed` climbs | `pages/Host.jsx` | TODO |
-| 3.2 | `poll` offered in type picker but no editor exists in HostSetup — silently yields MCQ | `pages/Create.jsx`, `pages/HostSetup.jsx` | TODO |
-| 3.3 | Score tally is 2N sequential round-trips; host closes tab mid-loop → partial credit | `pages/Host.jsx:196-204` | TODO |
-| 3.4 | Teams reset every game — the thing sessions were meant to fix. `teamCode` not carried forward. | `components/TeamLobby.jsx`, `pages/SessionPlay.jsx` | TODO |
+| 3.1 | Word cloud games score 0 → session leaderboard flat while `gamesPlayed` climbs | `pages/Host.jsx` | DONE |
+| 3.2 | `poll` offered in type picker but no editor exists in HostSetup — silently yields MCQ | `pages/Create.jsx`, `pages/HostSetup.jsx` | DONE |
+| 3.3 | Score tally is 2N sequential round-trips; host closes tab mid-loop → partial credit | `pages/Host.jsx:196-204` | DONE |
+| 3.4 | Teams reset every game — the thing sessions were meant to fix. `teamCode` not carried forward. | `components/TeamLobby.jsx`, `pages/SessionPlay.jsx` | DONE |
+
+**3.1** — `revealAnswer` now awards a flat `WORDCLOUD_POINTS` (500) to anyone who submitted
+text, so word-cloud rounds move the session leaderboard instead of leaving it flat.
+**3.2** — removed the `poll` card from the picker rather than shipping a type with no editor.
+Re-add it together with a real poll editor in HostSetup.
+**3.3** — collapsed to one read of `sessions/{code}/players` plus a single atomic multi-path
+`update()`, so a mid-tally tab close can no longer credit some players and skip others.
+**3.4** — teams are now session-scoped. `TeamLobby` takes a `basePath` (`sessions/{code}` in a
+session, `games/{pin}` otherwise); Play and Host read teams from that path, and the player's
+`teamCode` is read from the session node. Teams and membership now survive between games.
+Added rules for `sessions/{code}/teams` — anyone may create a team, but each player can only
+write their own `members/{uid}` key, and `captainUid` must equal the writer. This is tighter
+than the pre-existing `games/{pin}/teams` rule, which lets any member rewrite the whole node.
 
 ## Phase 4 — Robustness
 
@@ -115,6 +128,6 @@ so a 12-char code can't clip.
 | 6.1 | Reactions cooldown lives in component state → remount each game resets the 3-per-3-min limit | `components/Reactions.jsx:12-13` | TODO |
 | 6.2 | Chat's server-side cooldown rule is dead — `lastMessageAt` is never written anywhere | `components/Chat.jsx` | TODO |
 | 6.3 | Reactions re-adds floaters for all recent entries on every change → duplicates | `components/Reactions.jsx:27-35` | TODO |
-| 6.4 | `hostView` passed to `Reactions`, which doesn't accept it | `pages/Host.jsx:363` | TODO |
+| 6.4 | `hostView` passed to `Reactions`, which doesn't accept it | `pages/Host.jsx:363` | DONE |
 | 6.5 | Players never see the word cloud — `games/{pin}/answers` is host-read-only but Play promises "See the cloud!" | `pages/Play.jsx:231` | TODO |
 | 6.6 | Chat/reactions are pin-keyed so history dies every game; waiting room is silent between games | — | TODO |

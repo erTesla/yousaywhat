@@ -19,12 +19,6 @@ const GAME_TYPES = [
     desc:  'Players type short answers shown as a live word cloud',
   },
   {
-    key:   'poll',
-    icon:  '📊',
-    label: 'Poll / Vote',
-    desc:  'Quick vote on options — no scoring, results shown live',
-  },
-  {
     key:   'mixed',
     icon:  '🎲',
     label: 'Mixed Session',
