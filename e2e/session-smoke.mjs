@@ -332,16 +332,27 @@ async function run() {
 
   // End it — players should be released back to the session
   await wcHost.getByRole('button', { name: /End word cloud/i }).click();
-  await wcHost.waitForTimeout(4000);
+
+  // The player's end screen only lives for RETURN_SECONDS before the auto-return
+  // carries them to the lobby, so sample continuously rather than reading once.
+  let sawActivityEnd = false, sawWon = false;
+  for (let i = 0; i < 30; i++) {
+    const t = await player.locator('body').innerText().catch(() => '');
+    if (/no points/i.test(t)) sawActivityEnd = true;
+    if (/You Won/i.test(t))   sawWon = true;
+    if (/Waiting for the host/i.test(t)) break;
+    await player.waitForTimeout(300);
+  }
+  check('player gets an activity end screen with no scores', sawActivityEnd && !sawWon,
+        `activityEnd=${sawActivityEnd} sawWon=${sawWon}`);
+  await player.waitForURL(/\/session\/play/, { timeout: 25000 });
+  check('word cloud end returns the player to the lobby', true);
+
+  await wcHost.waitForTimeout(2000);
   check('ended word cloud shows the cloud, not a podium',
         /word cloud closed/i.test(await wcHost.locator('body').innerText()));
   check('no confetti canvas on a word cloud ending',
         await wcHost.locator('canvas').count() === 0);
-  await player.waitForTimeout(3000);
-  const wcPlayer = await player.locator('body').innerText();
-  check('player gets an activity end screen with no scores',
-        /no points/i.test(wcPlayer) && !/You Won/i.test(wcPlayer),
-        wcPlayer.replace(/\n+/g, ' | ').slice(0, 80));
 
   // dashboard mini view
   const wcDash = await hostCtx.newPage();
