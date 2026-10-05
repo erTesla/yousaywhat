@@ -82,6 +82,7 @@ async function run() {
   await host.getByRole('button', { name: /Start New Game/i }).click();
   await host.waitForURL(/\/create\?/, { timeout: 20000 });
   check('create picker carries sessionCode', host.url().includes(`sessionCode=${code}`));
+  await host.locator('.game-type-card').first().waitFor({ state: 'visible', timeout: 25000 });
   const labels = await host.locator('.gtc-label').allInnerTexts();
   check('poll type offered again, now as its own format', labels.some(l => /poll/i.test(l)), labels.join('/'));
   const tags = await host.locator('.gtc-tag').allInnerTexts();
@@ -106,7 +107,7 @@ async function run() {
 
   // ───────────────────────────── 4. Player auto-joins
   log('\n[4] Player auto-joins the launched game');
-  await player.waitForURL(/\/play\?/, { timeout: 25000 });
+  await player.waitForURL(/\/play\?pin=/, { timeout: 25000 });
   await player.waitForTimeout(1200);
   check('player auto-pushed into game without re-entering PIN',
         /sessionCode=/i.test(player.url()), player.url().replace(BASE, ''));
@@ -187,7 +188,7 @@ async function run() {
   await host.getByRole('button', { name: /Launch Game/i }).click();
   await host.waitForURL(/\/host\?/, { timeout: 20000 });
 
-  await player.waitForURL(/\/play\?/, { timeout: 25000 });
+  await player.waitForURL(/\/play\?pin=/, { timeout: 25000 });
   check('second game: player auto-joined again (loop works)', true);
 
   // 1.2 Resume/Cancel while a game is live
@@ -231,7 +232,7 @@ async function run() {
 
   if (offeredRejoin) {
     await player.getByRole('button', { name: /Rejoin Game/i }).click();
-    await player.waitForURL(/\/play\?/, { timeout: 20000 });
+    await player.waitForURL(/\/play\?pin=/, { timeout: 20000 });
     await player.waitForTimeout(2500);
     const scoreAfter = parseInt((((await player.locator('body').innerText()).match(/Total:\s*(\d+)/) || [0, 0])[1]), 10);
     check('1.1 score preserved across rejoin (not reset to 0)',
