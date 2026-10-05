@@ -83,7 +83,10 @@ async function run() {
   await host.waitForURL(/\/create\?/, { timeout: 20000 });
   check('create picker carries sessionCode', host.url().includes(`sessionCode=${code}`));
   const labels = await host.locator('.gtc-label').allInnerTexts();
-  check('3.2 poll type removed from picker', !labels.some(l => /poll/i.test(l)), labels.join('/'));
+  check('poll type offered again, now as its own format', labels.some(l => /poll/i.test(l)), labels.join('/'));
+  const tags = await host.locator('.gtc-tag').allInnerTexts();
+  check('activities are labelled "no scoring" in the picker',
+        tags.filter(t => /no scoring/i.test(t)).length === 2, tags.join(' / '));
 
   await host.locator('.game-type-card', { hasText: 'Quiz' }).first().click();
   await host.waitForURL(/\/create\/setup/, { timeout: 20000 });
@@ -159,7 +162,7 @@ async function run() {
   await host.waitForTimeout(2500);
   const lbTxt = await host.locator('.session-lb-card').innerText();
   check('3.3 cumulative session score recorded', /TEST-Player/.test(lbTxt) && /[1-9]/.test(lbTxt), lbTxt.replace(/\n/g, ' ').slice(0, 90));
-  const gamesTxt = await host.locator('.session-games-card').innerText();
+  const gamesTxt = await host.locator('.session-history-card').innerText();
   check('session past-games list records the game', /Games Played \(1\)/.test(gamesTxt), gamesTxt.split('\n')[0]);
   check('5.7 past game row is a link to results', await host.locator('a.session-game-row').count() > 0);
 
@@ -234,6 +237,42 @@ async function run() {
     check('1.1 score preserved across rejoin (not reset to 0)',
           scoreAfter >= scoreBefore && scoreBefore > 0, `before=${scoreBefore} after=${scoreAfter}`);
   }
+
+  // ───────────────────────────── 8b. Team mode gating + saved games
+  log('\n[8b] Team mode gating and saved games');
+  const d3 = await hostCtx.newPage();
+  globalThis.__pages.d3 = d3;
+  await d3.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await d3.locator('.session-teams-bar').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  check('team mode toggle present and OFF by default',
+        (await d3.locator('.toggle-btn').innerText()).includes('OFF'));
+  check('saved games card present', await d3.locator('.session-drafts-card').count() > 0);
+
+  // Build a game and save it instead of launching
+  await d3.getByRole('button', { name: /^Cancel$/ }).click().catch(() => {});
+  await d3.waitForTimeout(2000);
+  await d3.getByRole('button', { name: /Start New Game/i }).click();
+  await d3.waitForURL(/\/create\?/, { timeout: 20000 });
+  await d3.locator('.game-type-card', { hasText: 'Poll' }).first().click();
+  await d3.waitForURL(/\/create\/setup/, { timeout: 20000 });
+  check('poll editor hides the correct-answer radio',
+        await d3.locator('input[type=radio]').count() === 0);
+  await d3.getByPlaceholder(/Question text/i).fill('Tea or coffee?');
+  await d3.getByPlaceholder(/Option A/i).fill('Tea');
+  await d3.getByPlaceholder(/Option B/i).fill('Coffee');
+  await d3.getByPlaceholder(/Name this game/i).fill('E2E Saved Poll');
+  await d3.getByRole('button', { name: /Save for later/i }).click();
+  await d3.waitForURL(/\/session\/host/, { timeout: 20000 });
+  await d3.locator('.draft-row').first().waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  const draftTxt = await d3.locator('.session-drafts-card').innerText();
+  check('saved game appears on the dashboard', /E2E Saved Poll/.test(draftTxt),
+        draftTxt.replace(/\n+/g, ' | ').slice(0, 100));
+  check('saved game is labelled as a Poll', /Poll/.test(draftTxt));
+  check('saved game has Play and Delete',
+        await d3.getByRole('button', { name: /^Play$/ }).count() > 0 &&
+        await d3.getByRole('button', { name: /^Delete$/ }).count() > 0);
+  await d3.close();
+  delete globalThis.__pages.d3;
 
   // ───────────────────────────── 9. Host rejoin from a different "device"
   log('\n[9] Host password rejoin from a fresh device');

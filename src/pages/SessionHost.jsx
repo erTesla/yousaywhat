@@ -262,7 +262,7 @@ export default function SessionHost() {
           )}
         </div>
 
-        <div className="session-games-card">
+        <div className="session-games-card session-drafts-card">
           <h3>Saved Games ({draftList.length})</h3>
           {draftList.length === 0 ? (
             <p className="muted">
@@ -298,7 +298,7 @@ export default function SessionHost() {
           )}
         </div>
 
-        <div className="session-games-card">
+        <div className="session-games-card session-history-card">
           <h3>Games Played ({pastGames.length})</h3>
           {pastGames.length === 0 ? (
             <p className="muted">No games yet — start one below!</p>
