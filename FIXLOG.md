@@ -344,6 +344,64 @@ implementer's.
 
 ---
 
+## Round 6 — optimization pass (2026-10-06)
+
+Four parallel audits (duplication, performance, CSS, documentation). The headline
+result: **most of the obvious "optimizations" were not worth doing, and the biggest
+wins were bugs hiding inside the duplication.**
+
+### Bugs found by deduplication
+| Bug | Cause |
+|---|---|
+| Dashboard poll bars divided by `Math.max(counts)`, so the leader always drew 100% — a 60/40 split rendered as **100%/67%** beside the true counts | Reused the `max` variable that is correct for word-cloud font scaling |
+| Host's **ended** poll screen did not highlight the winner while the live screen did — and the ended screen is the projected one | Copy drift between the two blocks |
+| `isActivityType` defined twice with **incompatible contracts** (question object vs game-type string); the local shadowed the import | Renamed to `isActivityQuestion` |
+| `.score-row`'s `animation: pop-in` was dead, overridden by a duplicate block | Split selector |
+| `.home-right`'s media query preceded its base rule, so only `!important` worked | Ordering |
+
+### Consolidated
+`utils/poll.js` (`tallyChoices`, `pollBars`, `wordFrequency`) replaces nine inline
+tallies · `components/Splash.jsx` replaces six identical copies ·
+`components/ScoreRow.jsx` replaces four near-verbatim rows ·
+`utils/display.js` replaces `MEDALS` in eight files.
+
+### Performance
+`Host.jsx` held one listener on `games/{pin}`, which also contains chat, reactions,
+answers and history — so **every chat message re-delivered the whole game object**,
+questions array included, and re-rendered the host view (~200–300 kB per round).
+Now per-field listeners. The `Reactions` 1 s interval no longer runs forever.
+
+### Documented
+`database.rules.json` had **zero comments**. Added the two RTDB semantics that are
+easy to get wrong, the player-read trap (with the two bugs it caused as evidence),
+why `sessionAuth` is a sibling, the claim mechanism, and why the delete-only grant
+is safe. Corrected **three false claims in the README**, including a security
+guarantee about `hostSecret` that was wrong three ways, and the console-edit
+instruction that destroyed the `feedbackSessions` rules.
+
+### Deliberately NOT done
+- **Code splitting** — Firebase is already per-module; the bundle is
+  `@firebase/database` + `auth` + react-dom, all needed on first paint. ~10–15 kB
+  gzipped for Suspense on every route.
+- **Consolidating Play.jsx's 8 listeners** — would be a *security regression*: they
+  are separate precisely so players never read `questions[].correct`.
+- **CSS size** — 38 kB raw but **7.4 kB gzipped**, 4% of transfer.
+- **Deleting dead CSS** — there is none; all 355 classes are in use.
+- Lazy confetti (4 kB), the Timer's 100 ms tick (leaf component, keeps the bar
+  smooth), word-cloud frequency dedup beyond the shared helper (no drift, no bug),
+  merging the confirm-pill families (structurally different).
+
+### Verification
+102/102 after each phase. Net 477 insertions / 388 deletions across 17 files; CSS
+2361 → 2341 lines with the duplicate-selector list down to two intentional size
+overrides. No new lint errors.
+
+**Not verified:** the pixel-shifting merges (tag pill padding, bar radii/alpha) are
+asserted only by class name in the suite, not visually. Worth an eyeball on the host
+graph, dashboard previews and type badges.
+
+---
+
 ## Remaining / deferred
 
 - **Host password + lost-URL rejoin (from the approved design) is still not built.** Recovery is
