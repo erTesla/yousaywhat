@@ -35,6 +35,7 @@ export default function Host() {
   const [busy, setBusy]               = useState(false);
   const [chatEnabled, setChatEnabled] = useState(true);
   const [teams,       setTeams]       = useState({});
+  const [confirmEnd,  setConfirmEnd]  = useState(false);
 
   // ── Verify host identity ────────────────────────────────────────────────────
   useEffect(() => {
@@ -428,6 +429,29 @@ export default function Host() {
         >
           {chatEnabled ? '💬' : '🚫'}
         </button>
+
+        {/* End at any point, not only from the final scoreboard */}
+        {status !== 'ended' && (
+          confirmEnd ? (
+            <span className="end-confirm">
+              <span className="end-confirm-q">End now?</span>
+              <button
+                className="end-yes"
+                disabled={busy}
+                onClick={() => { setConfirmEnd(false); activityGame ? endActivity() : endGame(); }}
+              >
+                {busy ? '…' : 'End'}
+              </button>
+              <button className="end-no" disabled={busy} onClick={() => setConfirmEnd(false)}>
+                Keep going
+              </button>
+            </span>
+          ) : (
+            <button className="btn-end-game" onClick={() => setConfirmEnd(true)} title="End this game now">
+              ⏹ End
+            </button>
+          )
+        )}
       </div>
 
       {/* ── LOBBY ── */}

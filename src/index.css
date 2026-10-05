@@ -2318,3 +2318,44 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 .btn-exit-yes { background: var(--primary); color: #fff; }
 .btn-exit-no  { background: rgba(255,255,255,0.12); color: var(--muted); }
 .btn-exit-no:hover { color: #fff; }
+
+/* ── Host: end-game control in the topbar ───────────────────────────────── */
+.btn-end-game {
+  background: rgba(233,69,96,0.14);
+  border: 1px solid rgba(233,69,96,0.45);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-end-game:hover { background: rgba(233,69,96,0.26); }
+
+.end-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface);
+  border: 1px solid rgba(233,69,96,0.5);
+  border-radius: 999px;
+  padding: 4px 6px 4px 12px;
+  white-space: nowrap;
+}
+.end-confirm-q { font-size: 0.75rem; color: var(--muted); }
+
+.end-yes, .end-no {
+  border: none;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.end-yes { background: var(--primary); color: #fff; }
+.end-no  { background: rgba(255,255,255,0.12); color: var(--muted); }
+.end-no:hover { color: #fff; }
+
+.return-note { font-size: 0.78rem; }

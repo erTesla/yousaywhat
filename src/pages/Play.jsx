@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ref, onValue, set, get, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
-import { leaveSession } from '../utils/session';
+import { leaveSession, followedKey } from '../utils/session';
 import Timer from '../components/Timer';
 import Podium from '../components/Podium';
 import Chat from '../components/Chat';
@@ -14,6 +14,8 @@ import WordCloud from '../components/WordCloud';
 
 const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
 const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
+// Seconds a player lingers on the result before returning to the session lobby
+const RETURN_SECONDS = 6;
 
 export default function Play() {
   const [params]    = useSearchParams();
@@ -36,6 +38,7 @@ export default function Play() {
   const [gameKind,        setGameKind]        = useState('quiz');
   const [revealAnswers,   setRevealAnswers]   = useState({});
   const [confirmLeave,    setConfirmLeave]    = useState(false);
+  const [returnIn,        setReturnIn]        = useState(RETURN_SECONDS);
   const prevQIdx       = useRef(-1);
   const prevPoints     = useRef(0);
   const globalWritten  = useRef(false);
@@ -178,6 +181,19 @@ export default function Play() {
     }
     navigate('/');
   }
+
+
+  // The host ended the game: send players back to the session lobby instead of
+  // parking them on a dead screen. Short pause so they still see the outcome.
+  useEffect(() => {
+    if (status !== 'ended' || !sessionCode) return;
+    const tick = setInterval(() => setReturnIn(n => Math.max(0, n - 1)), 1000);
+    const go = setTimeout(() => {
+      try { sessionStorage.removeItem(followedKey(sessionCode)); } catch { /* storage blocked */ }
+      navigate(`/session/play?code=${sessionCode}`, { replace: true });
+    }, RETURN_SECONDS * 1000);
+    return () => { clearInterval(tick); clearTimeout(go); };
+  }, [status, sessionCode, navigate]);
 
   if (!user || !pin) return <Splash>Connecting…</Splash>;
 
@@ -420,9 +436,12 @@ export default function Play() {
         <p className="muted">Thanks for taking part — no points, just your words.</p>
         {Object.keys(revealAnswers).length > 0 && <WordCloud answers={revealAnswers} />}
         {sessionCode ? (
-          <button className="btn btn-primary" onClick={() => navigate(`/session/play?code=${sessionCode}`)}>
-            🔁 Back to Session
-          </button>
+          <>
+            <button className="btn btn-primary" onClick={() => navigate(`/session/play?code=${sessionCode}`)}>
+              🔁 Back to Session
+            </button>
+            <p className="muted return-note">Returning to the lobby in {returnIn}s…</p>
+          </>
         ) : (
           <button className="btn btn-primary" onClick={() => navigate('/')}>Back to Home</button>
         )}
@@ -445,9 +464,12 @@ export default function Play() {
           📊 View My Results
         </a>
         {sessionCode ? (
-          <button className="btn btn-primary" onClick={() => navigate(`/session/play?code=${sessionCode}`)}>
-            🔁 Back to Session
-          </button>
+          <>
+            <button className="btn btn-primary" onClick={() => navigate(`/session/play?code=${sessionCode}`)}>
+              🔁 Back to Session
+            </button>
+            <p className="muted return-note">Returning to the lobby in {returnIn}s…</p>
+          </>
         ) : (
           <button className="btn btn-primary" onClick={() => navigate('/')}>
             Play Again

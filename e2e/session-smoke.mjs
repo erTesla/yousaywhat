@@ -629,6 +629,75 @@ async function run() {
   await wqHost.close();
   delete globalThis.__pages.wqHost;
 
+
+  // ───────────────────────────── 8h. Host can end mid-game; players return to lobby
+  log('\n[8h] End game at any point / players bounce to lobby');
+  await player.goto(`${BASE}/session/play?code=${code}`, { waitUntil: 'networkidle' });
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+
+  const endHost = await hostCtx.newPage();
+  globalThis.__pages.endHost = endHost;
+  await endHost.goto(`${BASE}/session/host?code=${code}&secret=x`, { waitUntil: 'networkidle' });
+  await endHost.getByRole('button', { name: /Start New Game/i }).waitFor({ state: 'visible', timeout: 25000 });
+  await endHost.getByRole('button', { name: /Start New Game/i }).click();
+  await endHost.waitForURL(/\/create\?/, { timeout: 20000 });
+  await endHost.locator('.game-type-card').first().waitFor({ state: 'visible', timeout: 25000 });
+  await endHost.locator('.game-type-card', { hasText: 'Quiz' }).first().click();
+  await endHost.waitForURL(/\/create\/setup/, { timeout: 20000 });
+  await endHost.getByPlaceholder(/Question text/i).fill('Q1 of a game we abandon');
+  for (const [l, v] of [['A', 'one'], ['B', 'two'], ['C', 'three'], ['D', 'four']]) {
+    await endHost.getByPlaceholder(`Answer ${l}`).fill(v);
+  }
+  await endHost.locator('input[type=radio]').nth(0).check();
+  await endHost.getByRole('button', { name: /Launch Game Now/i }).click();
+  await endHost.waitForURL(/\/host\?/, { timeout: 20000 });
+
+  // End is available straight from the lobby, before a single question
+  check('End control is available in the lobby',
+        await endHost.getByRole('button', { name: /^\u23F9 End$/ }).count() > 0);
+
+  await player.waitForURL(/\/play\?pin=/, { timeout: 30000 });
+  const startE = endHost.getByRole('button', { name: /Start Game/i });
+  await startE.waitFor({ state: 'visible', timeout: 25000 });
+  await endHost.waitForFunction(() => {
+    const b = [...document.querySelectorAll('button')].find(x => /Start Game/i.test(x.textContent));
+    return b && !b.disabled;
+  }, null, { timeout: 25000 }).catch(() => {});
+  await startE.click({ timeout: 25000 });
+  await player.locator('.answer-btn').first().waitFor({ state: 'visible', timeout: 25000 });
+
+  // mid-question, with no reveal and no scoreboard reached
+  check('End control is available mid-question',
+        await endHost.getByRole('button', { name: /^\u23F9 End$/ }).count() > 0);
+  await endHost.getByRole('button', { name: /^\u23F9 End$/ }).click();
+  await endHost.locator('.end-confirm').waitFor({ state: 'visible', timeout: 15000 });
+  check('ending mid-game asks for confirmation',
+        /End now\?/i.test(await endHost.locator('.end-confirm').innerText()));
+  await endHost.getByRole('button', { name: /Keep going/i }).click();
+  await endHost.waitForTimeout(800);
+  check('Keep going cancels the end',
+        await endHost.getByRole('button', { name: /^\u23F9 End$/ }).count() > 0);
+
+  await endHost.getByRole('button', { name: /^\u23F9 End$/ }).click();
+  await endHost.getByRole('button', { name: /^End$/ }).click();
+  await endHost.waitForTimeout(4000);
+  check('game ends from mid-question',
+        /Final Results|ENDED/i.test(await endHost.locator('body').innerText()));
+
+  // player should show a countdown and then land in the lobby by itself
+  await player.waitForTimeout(1500);
+  const endTxt = await player.locator('body').innerText();
+  check('player is told they are returning to the lobby',
+        /Returning to the lobby/i.test(endTxt), (endTxt.match(/Returning[^\n]*/) || [''])[0]);
+  await player.waitForURL(/\/session\/play/, { timeout: 25000 });
+  check('player returns to the session lobby automatically after the host ends', true);
+  await player.locator('.session-waiting').waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+  check('player lobby is ready for the next game',
+        /Waiting for the host/i.test(await player.locator('body').innerText()));
+
+  await endHost.close();
+  delete globalThis.__pages.endHost;
+
   // ───────────────────────────── 9. Host rejoin from a different "device"
   log('\n[9] Host password rejoin from a fresh device');
   const newDeviceCtx = await browser.newContext();   // fresh storage => new anon uid
