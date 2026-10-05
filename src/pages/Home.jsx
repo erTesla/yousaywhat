@@ -58,6 +58,11 @@ export default function Home() {
       </button>
 
       <div className="home-divider">or</div>
+      <button className="btn btn-ghost" onClick={() => navigate('/leaderboard')}>
+        🌍 Global Leaderboard
+      </button>
+
+      <div className="home-divider">or</div>
       <button className="btn btn-feedback" onClick={() => navigate('/feedback')}>
         Give Feedback
       </button>

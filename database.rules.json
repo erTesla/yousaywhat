@@ -1,5 +1,12 @@
 {
   "rules": {
+    "globalLeaderboard": {
+      ".read": true,
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
     "games": {
       "$pin": {
         ".read": "auth != null && auth.uid === data.child('hostUid').val()",

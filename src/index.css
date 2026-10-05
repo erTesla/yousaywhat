@@ -769,6 +769,13 @@ select.time-select {
 .podium-rank { font-weight: 800; font-size: 1.1rem; color: var(--muted); }
 
 /* ════════════════════════════════════════════════════════════════════════════ */
+/* GLOBAL LEADERBOARD                                                          */
+/* ════════════════════════════════════════════════════════════════════════════ */
+.gl-header { text-align: center; padding: 8px 0 4px; }
+.gl-header h2 { margin-bottom: 4px; }
+.gl-games { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
+
+/* ════════════════════════════════════════════════════════════════════════════ */
 /* REACTIONS                                                                   */
 /* ════════════════════════════════════════════════════════════════════════════ */
 .reactions-widget {

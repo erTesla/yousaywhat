@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ref, onValue, set } from 'firebase/database';
+import { ref, onValue, set, get, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import Timer from '../components/Timer';
@@ -25,8 +25,9 @@ export default function Play() {
   const [myAnswer,        setMyAnswer]        = useState(null);
   const [scorePop,        setScorePop]        = useState(null);
   const [chatEnabled,     setChatEnabled]     = useState(true);
-  const prevQIdx     = useRef(-1);
-  const prevPoints   = useRef(0);
+  const prevQIdx       = useRef(-1);
+  const prevPoints     = useRef(0);
+  const globalWritten  = useRef(false);
   const noop = useCallback(() => {}, []);
 
   useEffect(() => { if (!pin) navigate('/'); }, [pin, navigate]);
@@ -81,6 +82,26 @@ export default function Play() {
       // DB write failed (e.g. timer expired before submit) — keep local lock
     }
   }
+
+  // Write global leaderboard entry once when game ends
+  useEffect(() => {
+    if (status !== 'ended' || !user || globalWritten.current) return;
+    const myScore = players[user.uid]?.score || 0;
+    const myName  = players[user.uid]?.name  || 'Anonymous';
+    if (myScore === 0) return;
+    globalWritten.current = true;
+
+    const glRef = ref(db, `globalLeaderboard/${user.uid}`);
+    get(glRef).then(snap => {
+      const prev = snap.val() || { totalScore: 0, gamesPlayed: 0 };
+      update(glRef, {
+        name:        myName,
+        totalScore:  (prev.totalScore || 0) + myScore,
+        gamesPlayed: (prev.gamesPlayed || 0) + 1,
+        lastPlayedAt: Date.now(),
+      });
+    }).catch(() => {});
+  }, [status, user, players]);
 
   // Score pop: fire when lastPoints changes and is > 0
   useEffect(() => {
