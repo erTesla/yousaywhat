@@ -291,6 +291,11 @@ export default function Host() {
       {/* Top bar */}
       <div className="host-topbar">
         <div className="pin-badge">PIN: {pin}</div>
+        <div className={`kind-badge${game.kind === 'activity' ? ' kind-activity' : ''}`}>
+          {game.kind === 'activity'
+            ? (game.gameType === 'poll' ? '📊 Poll · no scoring' : '☁️ Word Cloud · no scoring')
+            : '🧠 Quiz · scored'}
+        </div>
         <div className="status-chip">{status}</div>
         <div className="player-pill">{playerCount} 👥</div>
         <button

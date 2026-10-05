@@ -150,6 +150,58 @@ carry across games at all. Logged as a follow-up rather than bundled in here.
 
 ---
 
+## Round 2 — feature requests (2026-10-05)
+
+| # | Request | Status |
+|---|---------|--------|
+| R1 | Host logged out of a game had no way to rejoin | DONE |
+| R2 | Results combined every question instead of separating them | DONE |
+| R3 | Team mode should be host-controlled; players only see team options when it's on | DONE |
+| R4 | Voting poll reused the quiz UI; needs its own | DONE |
+| R5 | Word cloud and poll should not be scored "games" | DONE |
+| R6 | Host should be able to save a game for later and pick a saved one to play | DONE |
+| R7 | UI should be properly marked/labelled | DONE |
+
+**R1 — host password + rejoin.** The hash lives under `sessionAuth/{code}`, which has **no read
+grant at all**, so no client can read it. The host proves the password by *writing* its hash to
+`sessionAuth/{code}/claims/{uid}` — the rule accepts that write only if the value equals the
+stored hash, so a successful write *is* the password check and nothing readable ever leaks. The
+`sessions` write rule then honours any uid holding a claim, letting the new device take over.
+Hash is salted with the session code. Verified: wrong password rejected, correct password
+restores full control, no 64-hex string present in page state.
+*Caveat:* Spark has no rate limiting, so a weak password is brute-forceable at one round-trip
+per guess — hence the 4-char minimum. A longer password is genuinely safer here.
+
+**R2 — per-question results.** `revealAnswer` now snapshots each question's responses to
+`games/{pin}/history/{idx}` before the next question clears `answers`; `endGame` copies that
+instead of rebuilding from stale live data. Word-cloud questions show their actual responses
+with occurrence counts.
+
+**R3 — team mode.** `sessions/{code}/teamMode`, toggled on the dashboard (persists across
+games); one-off games get a checkbox in HostSetup. `TeamLobby` only renders when it's on. Host
+sees teams read-only — players still self-organize, per your choice.
+
+**R4/R5 — activities.** Word cloud and poll award no points, never touch the global leaderboard,
+and increment `activitiesJoined` instead of `totalScore`/`gamesPlayed`. Ranking is quiz-only.
+Poll has its own vote UI with live filling bars, a "no points" banner, a reveal that highlights
+the winning option rather than correct/wrong, and an editor with no correct-answer radio.
+
+**R6 — saved games.** `sessions/{code}/drafts`; "Save for later" in HostSetup, and a Saved Games
+card on the dashboard with Play/Delete. Play builds the real game from the stored questions and
+pushes session players in. Drafts survive replay.
+
+**Bug found while building R4:** `pushQuestion` never wrote `type` into `currentQuestion`, so
+Play and Host both treated every question as multiple choice — **word cloud had never rendered
+for players at all**. Fixed.
+
+### Verification
+`npm run test:e2e` — **47/47 passing**, now also covering host rejoin (wrong + right password),
+team-mode default-off, the poll editor, and saving/listing a game. Two earlier "failures" were
+test bugs, not product bugs: the URL regex `/\/play\?/` also matched `/session/play?`, and a
+label assertion raced the picker's auth-gated render.
+
+---
+
 ## Remaining / deferred
 
 - **Host password + lost-URL rejoin (from the approved design) is still not built.** Recovery is

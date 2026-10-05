@@ -240,6 +240,7 @@ export default function SessionHost() {
       <div className="session-host-body">
         <div className="session-lb-card">
           <h3>Cumulative Leaderboard</h3>
+          <p className="card-hint">Quiz points only — activities don't affect ranking.</p>
           {leaderboard.length === 0 ? (
             <p className="muted">No players yet.</p>
           ) : (
@@ -264,6 +265,7 @@ export default function SessionHost() {
 
         <div className="session-games-card session-drafts-card">
           <h3>Saved Games ({draftList.length})</h3>
+          <p className="card-hint">Built but not played yet. Play one to launch it for everyone in the session.</p>
           {draftList.length === 0 ? (
             <p className="muted">
               None saved. While building a game, use <strong>Save for later</strong> to keep it here.
@@ -300,6 +302,7 @@ export default function SessionHost() {
 
         <div className="session-games-card session-history-card">
           <h3>Games Played ({pastGames.length})</h3>
+          <p className="card-hint">Finished rounds. Click any row to open its full results.</p>
           {pastGames.length === 0 ? (
             <p className="muted">No games yet — start one below!</p>
           ) : (

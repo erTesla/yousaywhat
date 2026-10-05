@@ -2024,3 +2024,23 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 }
 .setup-save-row .text-input { flex: 1; min-width: 180px; font-size: 0.9rem; padding: 10px 14px; }
 .setup-save-row .btn { white-space: nowrap; }
+
+/* Card sub-headings that explain what a panel contains */
+.card-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: -8px 0 12px;
+}
+
+/* Host topbar badge marking scored game vs activity */
+.kind-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(46,196,182,0.16);
+  color: var(--green);
+  white-space: nowrap;
+}
+.kind-badge.kind-activity { background: rgba(248,180,0,0.16); color: var(--yellow); }
