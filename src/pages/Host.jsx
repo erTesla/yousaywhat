@@ -287,8 +287,10 @@ export default function Host() {
   async function endGame() {
     setBusy(true);
     try {
-      // Per-question responses were captured at each reveal, so use those
-      // rather than the live `answers` node (which only holds the last question).
+      // Per-question responses were captured at each reveal - or, for an
+      // activity question, by finishActivityQuestion(), which has no reveal
+      // step. Either way use that history rather than the live `answers` node,
+      // which only ever holds the most recent question.
       const qs = game.questions || [];
       const summary = game.history || {};
 

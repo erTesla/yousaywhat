@@ -1,4 +1,19 @@
 {
+  // YouSayWhat security rules.
+  //
+  // TWO SEMANTICS TO KNOW BEFORE EDITING THIS FILE:
+  //
+  // 1. READ grants cascade DOWNWARD and a child CANNOT revoke a parent's grant.
+  //    So you cannot make one field private inside a readable node - a nested
+  //    '".read": false' is inert. To hide something, put it in a separate
+  //    top-level node (see sessionAuth below).
+  // 2. WRITE is allowed if the rule at the path OR ANY ANCESTOR is true.
+  //    An ancestor grant therefore overrides anything stricter on a child.
+  //
+  // Rules are deployed from THIS FILE by CI on every push to main
+  // (.github/workflows/deploy.yml runs `firebase deploy --only database`).
+  // Never hand-edit rules in the Firebase console - the next push deletes
+  // them. That is how the feedbackSessions rules were lost once already.
   "rules": {
     "feedbackSessions": {
       "$code": {
@@ -13,6 +28,10 @@
       }
     },
 
+    // Host password material. Deliberately a SIBLING of sessions/ rather than a
+    // child: sessions/$code has ".read": "auth != null", and because read grants
+    // cascade, anything stored inside it would be readable by every signed-in
+    // client. Nothing here is readable by anyone.
     "sessionAuth": {
       "$code": {
         ".read": false,
@@ -20,6 +39,11 @@
           ".write": "auth != null && (!data.exists() || root.child('sessions').child($code).child('hostUid').val() === auth.uid)",
           ".validate": "newData.isString() && newData.val().length === 64"
         },
+        // Password check by WRITE, not by read. No client can read passwordHash;
+        // this rule compares the submitted value against it, so a successful
+        // write IS the authentication and nothing readable ever leaks. The
+        // sessions/$code write rule then honours any uid holding a claim, which
+        // is what lets a host take over from a new device.
         "claims": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && newData.val() === root.child('sessionAuth').child($code).child('passwordHash').val()",
@@ -36,6 +60,10 @@
 
         "players": {
           "$uid": {
+            // DELETION ONLY, so a player can leave. A value write makes newData
+            // exist at $uid, making this false and falling through to the
+            // host-only ancestor - so this does not let a player forge
+            // totalScore or gamesPlayed, which have no player grant at all.
             ".write": "auth != null && auth.uid === $uid && !newData.exists()",
             "name": {
               ".write": "auth != null && auth.uid === $uid",
@@ -79,6 +107,17 @@
       }
     },
 
+    // PLAYERS CANNOT READ THIS NODE - ".read" below is host-only, because the
+    // full node contains questions[].correct. Every field a player needs
+    // therefore requires its OWN '".read": true' entry (status, currentQuestion,
+    // reveal, players, chatEnabled, teamMode, kind, results, chat, reactions,
+    // teams, and answers conditionally).
+    //
+    // Forgetting one FAILS SILENTLY: the client's listener is denied and it
+    // keeps its default value. A missing "kind" rule made activities show
+    // players the quiz end screen; a missing read made word cloud never render.
+    // If you add a player-visible field, add its read rule here in the same
+    // commit.
     "games": {
       "$pin": {
         ".read": "auth != null && auth.uid === data.child('hostUid').val()",
@@ -89,6 +128,10 @@
         "currentQuestion": { ".read": true },
         "reveal":        { ".read": true },
 
+        // NOTE: this ".read": false is INERT - read grants cascade and a child
+        // cannot revoke the parent's. hostSecret is protected only because
+        // games/$pin itself is host-only. SessionHost.resumeGame() reads it on
+        // purpose, to re-enter a running game after losing the host tab.
         "hostSecret": {
           ".read": false
         },
@@ -104,6 +147,9 @@
           }
         },
 
+        // Readable by everyone at reveal, and while a poll or word cloud question
+        // is live - neither has a correct answer to leak, and watching results
+        // build is the point of them. Never readable during an MCQ question.
         "answers": {
           ".read": "auth != null && (auth.uid === data.parent().child('hostUid').val() || data.parent().child('status').val() === 'reveal' || data.parent().child('currentQuestion').child('type').val() === 'poll' || data.parent().child('currentQuestion').child('type').val() === 'wordcloud')",
           "$uid": {
