@@ -9,6 +9,7 @@ import { calcPoints } from '../utils/game';
 import Timer from '../components/Timer';
 import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
+import Chat from '../components/Chat';
 
 export default function Host() {
   const [params]  = useSearchParams();
@@ -22,6 +23,7 @@ export default function Host() {
   const [tamperAlerts, setTamperAlerts] = useState([]);
   const [timerDone, setTimerDone]     = useState(false);
   const [busy, setBusy]               = useState(false);
+  const [chatEnabled, setChatEnabled] = useState(true);
 
   // ── Verify host identity ────────────────────────────────────────────────────
   useEffect(() => {
@@ -185,6 +187,17 @@ export default function Host() {
         <div className="pin-badge">PIN: {pin}</div>
         <div className="status-chip">{status}</div>
         <div className="player-pill">{playerCount} 👥</div>
+        <button
+          className={`btn-chat-toggle ${chatEnabled ? 'chat-on' : 'chat-off'}`}
+          onClick={() => {
+            const next = !chatEnabled;
+            setChatEnabled(next);
+            update(ref(db, `games/${pin}`), { chatEnabled: next });
+          }}
+          title={chatEnabled ? 'Disable chat' : 'Enable chat'}
+        >
+          {chatEnabled ? '💬' : '🚫'}
+        </button>
       </div>
 
       {/* ── LOBBY ── */}
@@ -295,6 +308,13 @@ export default function Host() {
           <button className="btn btn-ghost" onClick={() => navigate('/')}>Back to Home</button>
         </div>
       )}
+      <Chat
+        pin={pin}
+        user={user}
+        playerName="Host"
+        isHost
+        chatEnabled={chatEnabled}
+      />
     </div>
   );
 }

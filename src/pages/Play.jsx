@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import Timer from '../components/Timer';
 import Scoreboard from '../components/Scoreboard';
 import Podium from '../components/Podium';
+import Chat from '../components/Chat';
 
 const CHOICE_COLORS  = ['ans-red', 'ans-blue', 'ans-yellow', 'ans-green'];
 const CHOICE_SHAPES  = ['▲', '◆', '●', '■'];
@@ -22,6 +23,7 @@ export default function Play() {
   const [players,         setPlayers]         = useState({});
   const [myAnswer,        setMyAnswer]        = useState(null);
   const [scorePop,        setScorePop]        = useState(null);
+  const [chatEnabled,     setChatEnabled]     = useState(true);
   const prevQIdx     = useRef(-1);
   const prevPoints   = useRef(0);
   const noop = useCallback(() => {}, []);
@@ -48,14 +50,16 @@ export default function Play() {
       setCurrentQuestion(q);
     });
 
-    const unsubReveal  = onValue(ref(db, `games/${pin}/reveal`),   snap => setReveal(snap.val()));
-    const unsubPlayers = onValue(ref(db, `games/${pin}/players`),  snap => setPlayers(snap.val() || {}));
+    const unsubReveal   = onValue(ref(db, `games/${pin}/reveal`),       snap => setReveal(snap.val()));
+    const unsubPlayers  = onValue(ref(db, `games/${pin}/players`),      snap => setPlayers(snap.val() || {}));
+    const unsubChat     = onValue(ref(db, `games/${pin}/chatEnabled`),  snap => setChatEnabled(snap.val() !== false));
 
     return () => {
       unsubStatus();
       unsubQuestion();
       unsubReveal();
       unsubPlayers();
+      unsubChat();
     };
   }, [pin, user, navigate]);
 
@@ -94,6 +98,16 @@ export default function Play() {
   const myPlayer   = players[user.uid];
   const playerList = Object.entries(players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
 
+  const chatWidget = (
+    <Chat
+      pin={pin}
+      user={user}
+      playerName={myPlayer?.name}
+      isHost={false}
+      chatEnabled={chatEnabled}
+    />
+  );
+
   // ── LOBBY ────────────────────────────────────────────────────────────────────
   if (!status || status === 'lobby') {
     return (
@@ -105,6 +119,7 @@ export default function Play() {
           <p className="muted">Waiting for host to start…</p>
           <p className="player-count-tag">{Object.keys(players).length} players joined</p>
         </div>
+        {chatWidget}
       </div>
     );
   }
@@ -146,6 +161,7 @@ export default function Play() {
             <p className="muted">Waiting for everyone else…</p>
           </div>
         )}
+        {chatWidget}
       </div>
     );
   }
@@ -184,6 +200,7 @@ export default function Play() {
         </div>
 
         <div className="reveal-total">Total: {myPlayer?.score || 0} pts</div>
+        {chatWidget}
       </div>
     );
   }
@@ -196,6 +213,7 @@ export default function Play() {
         <h2>Leaderboard</h2>
         <div className="my-rank-banner">You're #{myRank}</div>
         <Scoreboard players={playerList} highlightUid={user.uid} />
+        {chatWidget}
       </div>
     );
   }
@@ -212,6 +230,7 @@ export default function Play() {
         <button className="btn btn-primary" onClick={() => navigate('/')}>
           Play Again
         </button>
+        {chatWidget}
       </div>
     );
   }

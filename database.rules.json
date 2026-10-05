@@ -37,6 +37,24 @@
           "$id": {
             ".write": "auth != null && auth.uid !== data.parent().parent().child('hostUid').val()"
           }
+        },
+
+        "chatEnabled": {
+          ".read": true
+        },
+
+        "chat": {
+          ".read": true,
+          "$msgId": {
+            ".write": "auth != null
+              && newData.child('uid').val() === auth.uid
+              && newData.child('text').val().length >= 1
+              && newData.child('text').val().length <= 200
+              && (
+                !root.child('games').child($pin).child('players').child(auth.uid).child('lastMessageAt').exists()
+                || now - root.child('games').child($pin).child('players').child(auth.uid).child('lastMessageAt').val() > 3000
+              )"
+          }
         }
       }
     }
