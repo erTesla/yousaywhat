@@ -62,17 +62,32 @@ export default function Host() {
       .catch(() => setVerifyErr(true));
   }, [user, pin, secret, navigate]);
 
-  // ── Game state listener ─────────────────────────────────────────────────────
+  // ── Game state listeners ────────────────────────────────────────────────────
+  // Deliberately NOT one listener on `games/${pin}`. That node also holds chat,
+  // reactions, tamperLog, results and history, so every chat message and every
+  // incoming answer re-delivered the entire game object - questions array and
+  // all - and re-rendered this whole screen. Subscribe only to what is drawn.
+  // Chat and Reactions have their own listeners; tamperLog uses onChildAdded.
   useEffect(() => {
     if (!verified || !pin) return;
 
-    const unsub = onValue(ref(db, `games/${pin}`), snap => {
-      if (!snap.exists()) return;
-      const data = snap.val();
-      setGame(data);
-      if (!sessionCode) setTeams(data.teams || {});
-    });
-    return unsub;
+    const base = `games/${pin}`;
+    const fields = ['status', 'currentQuestion', 'reveal', 'players', 'answers',
+                    'questions', 'gameType', 'kind', 'chatEnabled'];
+
+    const unsubs = fields.map(field =>
+      onValue(ref(db, `${base}/${field}`), snap => {
+        setGame(prev => ({ ...(prev || {}), [field]: snap.val() }));
+      }),
+    );
+
+    // Teams come from the session in a session game so they persist between
+    // rounds; only a one-off game keeps them on the game node.
+    if (!sessionCode) {
+      unsubs.push(onValue(ref(db, `${base}/teams`), snap => setTeams(snap.val() || {})));
+    }
+
+    return () => unsubs.forEach(u => u());
   }, [verified, pin, sessionCode]);
 
   // Session games keep teams on the session so they persist between rounds

@@ -37,11 +37,19 @@ export default function Reactions({ pin, user }) {
     setReactionCount(rc);
   }, [user]);
 
-  // Tick every second to update cooldown display
+  // Tick only while a cooldown is actually counting down. This used to run
+  // forever on every player and host screen, keeping the tab awake for nothing.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    if (!cooldownUntil || cooldownUntil <= Date.now()) return;
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      // cooldownUntil doesn't change when it lapses, so the effect won't re-run:
+      // stop from inside once it has passed.
+      if (t >= cooldownUntil) clearInterval(id);
+    }, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [cooldownUntil]);
 
   // Listen to all reactions and show floaters
   useEffect(() => {
