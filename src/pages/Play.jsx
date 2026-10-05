@@ -277,6 +277,9 @@ export default function Play() {
         {myRank !== 1 && <p className="my-final-rank">You finished #{myRank}</p>}
         <Podium players={playerList} />
         <TeamLeaderboard players={playerList} teams={teams} highlightUid={user.uid} final />
+        <a className="btn btn-ghost" href={`/results?pin=${pin}`} target="_blank" rel="noreferrer">
+          📊 View My Results
+        </a>
         <button className="btn btn-primary" onClick={() => navigate('/')}>
           Play Again
         </button>

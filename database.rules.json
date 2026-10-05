@@ -68,6 +68,17 @@
           }
         },
 
+        "results": {
+          "players": {
+            ".read": true
+          },
+          "summary": {
+            ".read": "auth != null && auth.uid === data.parent().parent().child('hostUid').val()"
+          },
+          "endedAt":       { ".read": true },
+          "questionCount": { ".read": true }
+        },
+
         "chat": {
           ".read": true,
           "$msgId": {

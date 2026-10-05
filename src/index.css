@@ -769,6 +769,102 @@ select.time-select {
 .podium-rank { font-weight: 800; font-size: 1.1rem; color: var(--muted); }
 
 /* ════════════════════════════════════════════════════════════════════════════ */
+/* RESULTS PAGE                                                                */
+/* ════════════════════════════════════════════════════════════════════════════ */
+.results-page {
+  max-width: 640px;
+  margin: 0 auto;
+  gap: 0;
+  padding: 16px;
+}
+
+.results-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.my-result-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--card);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  animation: pop-in 0.3s ease;
+}
+.mrb-rank  { font-size: 2.2rem; }
+.mrb-name  { font-weight: 700; font-size: 1.1rem; }
+.mrb-score { color: var(--green); font-weight: 800; font-size: 1rem; }
+
+.results-section { margin-bottom: 28px; }
+.results-section h3 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+.res-team-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+/* Question breakdown */
+.qb-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.qb-header { display: flex; align-items: flex-start; gap: 10px; }
+.qb-num {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  padding: 3px 8px;
+  flex-shrink: 0;
+}
+.qb-text { font-weight: 600; font-size: 0.9rem; flex: 1; line-height: 1.4; }
+.qb-badge { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
+
+.qb-bars { display: flex; flex-direction: column; gap: 6px; }
+.qb-bar-row { display: flex; align-items: center; gap: 8px; }
+.qb-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  width: 28px;
+  flex-shrink: 0;
+}
+.qb-label.qb-correct { color: var(--green); }
+.qb-bar-track {
+  flex: 1;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.qb-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.6s ease;
+}
+.qb-pct   { font-size: 0.8rem; font-weight: 700; width: 34px; text-align: right; flex-shrink: 0; }
+.qb-count { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
+
+/* ════════════════════════════════════════════════════════════════════════════ */
 /* WORD CLOUD                                                                  */
 /* ════════════════════════════════════════════════════════════════════════════ */
 .word-cloud {

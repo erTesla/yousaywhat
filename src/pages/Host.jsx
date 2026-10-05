@@ -146,7 +146,35 @@ export default function Host() {
   }
 
   async function endGame() {
-    await update(ref(db, `games/${pin}`), { status: 'ended' });
+    setBusy(true);
+    try {
+      // Build frozen results snapshot
+      const qs = game.questions || [];
+      const summary = {};
+      qs.forEach((q, idx) => {
+        if (q.type === 'wordcloud') return;
+        const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+        Object.values(answers).forEach(a => {
+          if (a.choice !== undefined && a.choice !== null) counts[a.choice] = (counts[a.choice] || 0) + 1;
+        });
+        summary[idx] = { choiceCounts: counts, correct: q.correct };
+      });
+
+      const playerHistory = {};
+      Object.entries(players).forEach(([uid, p]) => {
+        playerHistory[uid] = { name: p.name, score: p.score || 0, teamCode: p.teamCode || null };
+      });
+
+      await update(ref(db, `games/${pin}`), {
+        status: 'ended',
+        'results/players': playerHistory,
+        'results/summary': summary,
+        'results/endedAt': Date.now(),
+        'results/questionCount': qs.length,
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   // ── Guard renders ───────────────────────────────────────────────────────────
@@ -318,6 +346,17 @@ export default function Host() {
           <h2>🏆 Final Results</h2>
           <Podium players={playerList} />
           <TeamLeaderboard players={playerList} teams={teams} final />
+          <a
+            className="btn btn-primary btn-large"
+            href={`/results?pin=${pin}&secret=${secret}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            📊 View Full Results
+          </a>
+          <p className="muted" style={{ fontSize: '0.8rem' }}>
+            Players can view at: <strong>/results?pin={pin}</strong>
+          </p>
           <button className="btn btn-ghost" onClick={() => navigate('/')}>Back to Home</button>
         </div>
       )}
