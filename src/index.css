@@ -59,16 +59,6 @@ body { margin: 0; }
   min-height: 100svh;
 }
 
-@media (max-width: 700px) {
-  .home-layout {
-    grid-template-columns: 1fr;
-  }
-  .home-right {
-    border-top: 1px solid var(--border);
-    border-left: none !important;
-  }
-}
-
 .home-left {
   display: flex;
   flex-direction: column;
@@ -87,6 +77,16 @@ body { margin: 0; }
   border-left: 1px solid var(--border);
   background: var(--surface);
   overflow: hidden;
+}
+
+/* Single column on narrow screens. This must come AFTER the base rule above -
+   when it sat before it, the base won and only `!important` could override. */
+@media (max-width: 700px) {
+  .home-layout { grid-template-columns: 1fr; }
+  .home-right {
+    border-top: 1px solid var(--border);
+    border-left: none;
+  }
 }
 
 /* Mini leaderboard */
@@ -245,7 +245,9 @@ p  { line-height: 1.5; }
   outline: none;
   transition: border-color 0.15s;
 }
-.pin-input { font-size: 2rem; font-weight: 700; text-align: center; letter-spacing: 8px; }
+/* Accepts a 6-digit PIN or a letter session code, hence the uppercasing and
+   the tighter tracking at narrow widths below. */
+.pin-input { font-size: 2rem; font-weight: 700; text-align: center; letter-spacing: 8px; text-transform: uppercase; }
 .pin-input:focus,
 .text-input:focus { border-color: var(--primary); }
 
@@ -658,8 +660,8 @@ select.time-select {
 
 .ans-red    { background: var(--red); }
 .ans-blue   { background: var(--blue); }
-.ans-yellow { background: var(--yellow); color: #1a1a2e; }
-.ans-green  { background: var(--green); color: #1a1a2e; }
+.ans-yellow { background: var(--yellow); color: var(--bg); }
+.ans-green  { background: var(--green); color: var(--bg); }
 
 .ans-shape { font-size: 1.4rem; }
 .ans-text  { font-size: 0.9rem; }
@@ -682,7 +684,7 @@ select.time-select {
   justify-content: center;
   font-size: 2.5rem;
   font-weight: 900;
-  color: #1a1a2e;
+  color: var(--bg);
   animation: pop-in 0.2s ease;
 }
 
@@ -775,7 +777,9 @@ select.time-select {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px 16px;
-  animation: pop-in 0.2s ease;
+  /* slide-in, not pop-in: a later duplicate .score-row block used to override
+     the animation here, leaving the pop-in declaration dead. */
+  animation: slide-in 0.35s ease both;
 }
 .score-row.highlight { border-color: var(--primary); background: rgba(233,69,96,0.1); }
 .score-row.rank-1    { border-color: var(--yellow); }
@@ -790,9 +794,6 @@ select.time-select {
 /* ════════════════════════════════════════════════════════════════════════════ */
 /* SCOREBOARD — rank arrows + stagger                                          */
 /* ════════════════════════════════════════════════════════════════════════════ */
-.score-row {
-  animation: slide-in 0.35s ease both;
-}
 @keyframes slide-in {
   from { transform: translateX(-24px); opacity: 0; }
   to   { transform: translateX(0);     opacity: 1; }
@@ -967,18 +968,43 @@ select.time-select {
   flex-shrink: 0;
 }
 .qb-label.qb-correct { color: var(--green); }
-.qb-bar-track {
-  flex: 1;
-  height: 10px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 5px;
+/* ── Progress bars ───────────────────────────────────────────────────────────
+   Four bar families shared everything but their height, which IS meaningfully
+   different: 20px for the host graph being projected, 7px for a dashboard
+   sparkline. Height comes from --bar-h per family; the track alpha had drifted
+   (.08/.09/.1) and is now one value.
+   - .qb-bar-*     results breakdown (squared corners, per-choice colour)
+   - .poll-bar-*   player poll results
+   - .hpg-*        host live poll graph
+   - .poll-mini-*  dashboard activity preview
+   ────────────────────────────────────────────────────────────────────────── */
+.qb-bar-track,
+.poll-bar-track,
+.hpg-track,
+.poll-mini-track {
+  height: var(--bar-h, 10px);
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px;
   overflow: hidden;
 }
-.qb-bar-fill {
+
+.qb-bar-fill,
+.poll-bar-fill,
+.hpg-fill,
+.poll-mini-fill {
   height: 100%;
-  border-radius: 5px;
-  transition: width 0.6s ease;
+  border-radius: 999px;
+  background: var(--yellow);
+  transition: width 0.4s ease;
 }
+
+/* The results breakdown squares its corners and colours each bar per choice
+   (set inline from BAR_COLORS), so it opts out of the shared radius/fill. */
+.qb-bar-track { flex: 1; border-radius: 5px; }
+.qb-bar-fill  { border-radius: 5px; background: none; transition: width 0.6s ease; }
+
+.hpg-track       { --bar-h: 20px; }
+.poll-mini-track { --bar-h: 7px; }
 .qb-pct   { font-size: 0.8rem; font-weight: 700; width: 34px; text-align: right; flex-shrink: 0; }
 .qb-count { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
 
@@ -1090,9 +1116,10 @@ select.time-select {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 30px;
-  padding: 6px 12px;
+  padding: 5px 9px;
   pointer-events: all;
   box-shadow: var(--shadow);
+  z-index: 190;          /* above the page, below the chat panel */
 }
 
 .reaction-btn {
@@ -1110,10 +1137,10 @@ select.time-select {
 
 .reaction-cooldown { opacity: 0.8; }
 .reaction-timer {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--muted);
-  padding: 4px 8px;
+  padding: 0 6px;
   pointer-events: none;
 }
 
@@ -1165,7 +1192,7 @@ select.time-select {
   top: -4px;
   right: -4px;
   background: var(--yellow);
-  color: #1a1a2e;
+  color: var(--bg);
   font-size: 0.7rem;
   font-weight: 900;
   border-radius: 10px;
@@ -1377,7 +1404,7 @@ select.time-select {
   width: 72px; height: 72px;
   border-radius: 50%;
   background: var(--green);
-  color: #1a1a2e;
+  color: var(--bg);
   font-size: 2.2rem;
   font-weight: 900;
   display: flex;
@@ -1535,6 +1562,11 @@ select.time-select {
 }
 
 .session-active-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
   background: rgba(46,196,182,0.15);
   border: 1px solid rgba(46,196,182,0.4);
   border-radius: 8px;
@@ -1553,8 +1585,11 @@ select.time-select {
   .session-host-body { grid-template-columns: 1fr; }
 }
 
+/* Dashboard panel. Kept as a selector list rather than renamed to one class,
+   because the end-to-end suite selects these names. */
 .session-lb-card,
-.session-games-card {
+.session-games-card,
+.session-clouds-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1692,14 +1727,6 @@ select.time-select {
 }
 
 /* Active-game banner now holds Resume/Cancel */
-.session-active-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 .sab-actions {
   display: flex;
   gap: 8px;
@@ -1736,10 +1763,10 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 
 /* Join input also accepts letter session codes (STORM-3392), not just 6 digits.
    Tighten tracking as the viewport narrows so 10-12 chars never clip. */
-.pin-input { text-transform: uppercase; }
-
 @media (max-width: 480px) {
   .pin-input { font-size: 1.6rem; letter-spacing: 4px; }
+  .reaction-btn { font-size: 1rem; padding: 2px; }
+  .reaction-bar { gap: 0; padding: 5px 7px; }
 }
 
 @media (max-width: 360px) {
@@ -1854,20 +1881,35 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 .setup-option-note { font-size: 0.78rem; margin: 4px 0 12px; }
 
 /* ── Game type tags on the picker ────────────────────────────────────────── */
-.gtc-tag {
-  font-size: 0.65rem;
+/* ── Tag pills ───────────────────────────────────────────────────────────────
+   One green-with-yellow-variant pill in three sizes. These were three separate
+   near-identical rules whose background alpha had drifted (.16/.16/.18); the
+   shared value below is deliberate.
+   - .gtc-tag     game-type picker card (uppercase, smallest)
+   - .sgr-kind    session history row
+   - .kind-badge  host topbar
+   ────────────────────────────────────────────────────────────────────────── */
+.gtc-tag,
+.sgr-kind,
+.kind-badge {
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(46,196,182,0.18);
+  background: rgba(46,196,182,0.16);
   color: var(--green);
+  white-space: nowrap;
 }
-.gtc-tag-activity {
-  background: rgba(248,180,0,0.18);
+
+/* Yellow "activity" variant of any tag pill */
+.gtc-tag-activity,
+.sgr-kind-activity,
+.kind-badge.kind-activity {
+  background: rgba(248,180,0,0.16);
   color: var(--yellow);
 }
+
+.gtc-tag    { font-size: 0.65rem; padding: 3px 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+.sgr-kind   { font-size: 0.7rem;  padding: 2px 8px; }
+.kind-badge { font-size: 0.7rem;  padding: 4px 10px; }
 
 /* ── Poll (player view) ──────────────────────────────────────────────────── */
 .poll-banner {
@@ -1943,18 +1985,6 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 }
 .poll-res-top .po-text { font-weight: 700; color: var(--yellow); }
 
-.poll-bar-track {
-  height: 10px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.poll-bar-fill {
-  height: 100%;
-  background: var(--yellow);
-  border-radius: 999px;
-  transition: width 0.35s ease;
-}
 .poll-pct { font-size: 0.78rem; color: var(--muted); text-align: right; }
 
 .reveal-note { font-size: 0.75rem; }
@@ -1968,16 +1998,7 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 }
 
 /* Session history kind labels */
-.sgr-kind {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(46,196,182,0.16);
-  color: var(--green);
-  white-space: nowrap;
-}
-.sgr-kind-activity { background: rgba(248,180,0,0.16); color: var(--yellow); }
+
 
 .lb-activities { font-size: 0.7rem; color: var(--muted); }
 
@@ -2033,16 +2054,7 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 }
 
 /* Host topbar badge marking scored game vs activity */
-.kind-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(46,196,182,0.16);
-  color: var(--green);
-  white-space: nowrap;
-}
-.kind-badge.kind-activity { background: rgba(248,180,0,0.16); color: var(--yellow); }
+
 
 /* ── Word cloud: dedicated host flow ────────────────────────────────────── */
 .wc-host {
@@ -2110,12 +2122,6 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 .wc-player-live h2 { margin: 0; }
 
 /* ── Word cloud mini previews on the dashboard ──────────────────────────── */
-.session-clouds-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-}
 .session-clouds-card h3 { margin: 0 0 4px; font-size: 1rem; }
 
 .cloud-grid {
@@ -2172,10 +2178,6 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 .cloud-mini-word { color: var(--text); }
 .cloud-mini-count { font-size: 0.68rem; }
 
-/* Keep the emoji strip clear of the chat panel when it is open */
-.reaction-bar { padding: 5px 9px; z-index: 190; }
-.reaction-timer { font-size: 0.8rem; padding: 0 6px; }
-
 /* ── Host live poll graph ────────────────────────────────────────────────── */
 .host-poll-graph {
   display: flex;
@@ -2199,19 +2201,6 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
   white-space: nowrap;
 }
 
-.hpg-track {
-  height: 20px;
-  background: rgba(255,255,255,0.09);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.hpg-fill {
-  height: 100%;
-  background: var(--yellow);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
 
 .hpg-val {
   font-size: 0.85rem;
@@ -2246,10 +2235,7 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
   padding: 9px 20px;
 }
 
-@media (max-width: 420px) {
-  .reaction-btn { font-size: 1rem; padding: 2px; }
-  .reaction-bar { gap: 0; padding: 5px 7px; }
-}
+
 
 /* Poll mini preview on the dashboard */
 .poll-mini { display: flex; flex-direction: column; gap: 5px; flex: 1; }
@@ -2264,13 +2250,6 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 
 .poll-mini-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.poll-mini-track {
-  height: 7px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.poll-mini-fill { height: 100%; background: var(--yellow); border-radius: 999px; }
 .poll-mini-n { color: var(--muted); text-align: right; }
 
 /* ── Leave confirmation ─────────────────────────────────────────────────── */
@@ -2306,7 +2285,10 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
   max-width: calc(100vw - 32px);
 }
 
-.btn-exit-yes, .btn-exit-no {
+/* Inline confirm buttons, shared by the in-game exit pill and the host's
+   end-game pill. */
+.btn-exit-yes, .btn-exit-no,
+.end-yes, .end-no {
   border: none;
   border-radius: 999px;
   padding: 5px 12px;
@@ -2315,9 +2297,9 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
   cursor: pointer;
   white-space: nowrap;
 }
-.btn-exit-yes { background: var(--primary); color: #fff; }
-.btn-exit-no  { background: rgba(255,255,255,0.12); color: var(--muted); }
-.btn-exit-no:hover { color: #fff; }
+.btn-exit-yes, .end-yes { background: var(--primary); color: #fff; }
+.btn-exit-no,  .end-no  { background: rgba(255,255,255,0.12); color: var(--muted); }
+.btn-exit-no:hover, .end-no:hover { color: #fff; }
 
 /* ── Host: end-game control in the topbar ───────────────────────────────── */
 .btn-end-game {
@@ -2346,17 +2328,7 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 }
 .end-confirm-q { font-size: 0.75rem; color: var(--muted); }
 
-.end-yes, .end-no {
-  border: none;
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-.end-yes { background: var(--primary); color: #fff; }
-.end-no  { background: rgba(255,255,255,0.12); color: var(--muted); }
-.end-no:hover { color: #fff; }
+
 
 .return-note { font-size: 0.78rem; }
 
