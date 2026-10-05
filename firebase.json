@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "target": "yousaywhat",
+    "site": "yousaywhat",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]
