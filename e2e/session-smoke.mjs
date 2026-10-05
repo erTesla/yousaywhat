@@ -474,22 +474,11 @@ async function run() {
   check('host player count drops after the player leaves',
         /0 players/i.test(headerAfter), headerAfter.replace(/\n+/g, ' | '));
 
-  // the delete-only grant must not have opened up score forgery
-  const forge = await player.evaluate(async (sessionCode) => {
-    const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js');
-    const { getAuth } = await import('https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js');
-    try {
-      const db = getDatabase();
-      const uid = getAuth().currentUser?.uid;
-      if (!uid) return 'no-uid';
-      await set(ref(db, `sessions/${sessionCode}/players/${uid}/totalScore`), 999999);
-      return 'WROTE';
-    } catch (e) {
-      return 'denied:' + (e?.code || e?.message || 'unknown');
-    }
-  }, code).catch(e => 'probe-failed:' + e.message.slice(0, 40));
-  check('players still cannot forge a session score after the delete grant',
-        !String(forge).startsWith('WROTE'), String(forge).slice(0, 60));
+  // NOTE: the delete-only write grant on sessions/{code}/players/{uid} is NOT
+  // covered here. Probing it needs the page's initialised Firebase app, which is
+  // bundled and not reachable from an injected script. Reasoning instead:
+  // a value write makes newData exist at $uid, so the delete-only grant is false
+  // and it falls through to the host-only ancestor. Verify by hand if it matters.
 
   await beforeDash.close();
 

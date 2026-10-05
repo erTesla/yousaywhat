@@ -243,6 +243,57 @@ player activity end screen, and the dashboard mini cloud.
 
 ---
 
+## Round 4 — activity polish, player navigation, compact chrome (2026-10-05)
+
+| # | Request | Status |
+|---|---------|--------|
+| P1 | No confetti on word cloud ending | DONE |
+| P2 | Poll: no reveal screen, just the graph and who polled | DONE |
+| P3 | No confetti on poll | DONE |
+| P4 | Option to return to dashboard from a poll | DONE |
+| P5 | Starting any game switches every player to the waiting lobby | DONE |
+| P6 | Players can exit a session/game to join another | DONE |
+| P7 | Emoji strip right-side above the chat button | DONE |
+| P8 | Leaving removes the player from the session | DONE |
+
+**P1/P3 — confetti.** It was never word-cloud specific: confetti lives inside
+`Podium`, and polls were falling through to the quiz ending, which rendered it.
+Activities now never render `Podium`, so neither shows confetti.
+
+**P2/P4 — poll flow.** Polls run as activities like word cloud: live bar graph
+with a vote count and the leading option highlighted, no reveal, no scoreboard,
+and **End poll** / **Save & back to dashboard**. Snapshots moved from
+`sessions/{code}/clouds` to `sessions/{code}/activities` with a `type`, so the
+dashboard panel (now **Activity Results**) renders clouds and poll bars alike.
+
+**P5 — global follow.** `Play.jsx` watches `sessions/{code}/currentGamePin`;
+starting a different game or ending the current one moves the player instead of
+leaving them on a dead screen. Previously only the waiting room followed.
+
+**P6/P8 — leaving.** Removes the roster entry (and that player's cumulative
+session score), their team membership, and their record in the live game. Needed
+a rules change: `sessions/{code}/players/{uid}` grants the owner write **only
+when `newData` does not exist**, i.e. deletion only. Both exits are two-step
+inline confirms, since this discards their standing.
+
+**P7 — emoji strip.** Right-aligned directly above the chat button, smaller
+glyphs, tighter spacing, shrinking again under 420px.
+
+### Verification
+`npm run test:e2e` — **77 checks**, covering the poll flow end to end, absence of
+confetti on both activity endings, follow-on-start, the two-step leave with
+roster removal and host count dropping, rejoin after leaving, and the emoji
+strip's geometry relative to the chat button.
+
+**Not verified:** the delete-only write grant was briefly "tested" by an injected
+script that silently failed to get a Firebase app (`app/no-app`) and so passed
+for the wrong reason. That check has been removed rather than left as a false
+pass. The rule is reasoned — a value write makes `newData` exist at `$uid`, so the
+delete-only grant is false and it falls through to the host-only ancestor — but it
+has not been empirically confirmed.
+
+---
+
 ## Remaining / deferred
 
 - **Host password + lost-URL rejoin (from the approved design) is still not built.** Recovery is
