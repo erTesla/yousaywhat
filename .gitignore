@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Screenshot captures from e2e/shots.mjs - regenerable, not source
+e2e/shots/
