@@ -2213,9 +2213,12 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 
 /* ── Player exit control ─────────────────────────────────────────────────── */
 .btn-exit {
+  /* Bottom-LEFT: the play topbar's timer occupies the top-right, and the emoji
+     strip plus chat button occupy the bottom-right. Sitting top-right obscured
+     the countdown, which is the most important thing on screen mid-question. */
   position: fixed;
-  top: 12px;
-  right: 16px;
+  bottom: 20px;
+  left: 16px;
   z-index: 190;
   background: rgba(0,0,0,0.35);
   border: 1px solid var(--border);
@@ -2270,8 +2273,8 @@ a.session-game-row:hover { background: rgba(255,255,255,0.09); }
 
 .exit-confirm {
   position: fixed;
-  top: 12px;
-  right: 16px;
+  bottom: 20px;
+  left: 16px;
   z-index: 195;
   display: flex;
   align-items: center;
